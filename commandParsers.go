@@ -20,6 +20,15 @@ func ParseCmdGetSettingBody(data []uint8) {
 
 }
 
+func ParseCmdPingBody(data []uint8) int64 {
+	var timestamp int64
+
+	buf := bytes.NewReader(data)
+	binary.Read(buf, binary.LittleEndian, &timestamp)
+
+	return timestamp
+}
+
 func ParseCmdSetSettingBody(data []uint8) (setting uint32, args []uint32) {
 	buf := bytes.NewReader(data)
 

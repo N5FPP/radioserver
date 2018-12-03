@@ -270,6 +270,10 @@ type ClientSync struct {
 	MaximumFFTCenterFrequency uint32
 }
 
+type PingPacket struct {
+	timestamp int64
+}
+
 const MessageHeaderSize = uint32(unsafe.Sizeof(MessageHeader{}))
 const CommandHeaderSize = uint32(unsafe.Sizeof(CommandHeader{}))
 const MaxMessageBodySize = 1 << 20

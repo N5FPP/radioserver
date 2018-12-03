@@ -1,5 +1,6 @@
 package main
 
+import "time"
 
 func RunCmdHello(state *ClientState) {
 	version, name := ParseCmdHelloBody(state.cmdBody)
@@ -42,6 +43,10 @@ func RunCmdSetSetting(state *ClientState) {
 }
 
 func RunCmdPing(state *ClientState) {
-	state.Debug("Received PING")
+	timestamp := ParseCmdPingBody(state.cmdBody)
+	delta := float64(time.Now().UnixNano() - timestamp) / 1e6
+	state.Log("Received PING %.2f ms", delta)
+
+	state.lastPingTime = timestamp
 	state.SendPong()
 }

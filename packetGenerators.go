@@ -1,5 +1,7 @@
 package main
 
+import "time"
+
 func CreateDeviceInfo(state *ClientState) []uint8 {
 	var deviceInfo = serverState.deviceInfo
 	var bodyData = structToBytes(deviceInfo)
@@ -22,6 +24,26 @@ func CreateClientSync(state *ClientState) []uint8 {
 	var header = MessageHeader{
 		ProtocolID: ProtocolVersion,
 		MessageType: MsgTypeClientSync,
+		StreamType: StreamTypeStatus,
+		SequenceNumber: uint32(state.packetSent & 0xFFFFFFFF),
+		BodySize: uint32(len(bodyData)),
+	}
+
+	return append(structToBytes(header), bodyData...)
+}
+
+
+func CreatePong(state *ClientState) []uint8 {
+	var ts = time.Now()
+	var pingPacket = PingPacket{
+		timestamp: ts.UnixNano(),
+	}
+	var bodyData = structToBytes(pingPacket)
+
+
+	var header = MessageHeader{
+		ProtocolID: ProtocolVersion,
+		MessageType: MsgTypePong,
 		StreamType: StreamTypeStatus,
 		SequenceNumber: uint32(state.packetSent & 0xFFFFFFFF),
 		BodySize: uint32(len(bodyData)),

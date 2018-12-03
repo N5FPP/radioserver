@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/google/uuid"
 	"github.com/racerxdl/radioserver/SLog"
 	"math/rand"
 	"net"
@@ -45,23 +44,12 @@ func parseHttpError(err error, state *ClientState) {
 }
 
 func handleConnection(c net.Conn) {
-	var clientState = &ClientState{
-		uuid: uuid.New().String(),
-		buffer: make([]uint8, 64 * 1024),
-		addr: c.RemoteAddr(),
-		log: SLog.Scope(fmt.Sprintf("Client %s", c.RemoteAddr())),
-		currentState: ParserAcquiringHeader,
-		connectedSince: time.Now(),
-		receivedBytes: 0,
-		sendBytes: 0,
-		conn: c,
-		running: true,
-		packetSent: 0,
-		cmdReceived: 0,
-		parserPosition: 0,
-		headerBuffer: make([]uint8, MessageHeaderSize),
-		connMtx: sync.Mutex{},
-	}
+	var clientState = CreateClientState()
+
+	clientState.addr = c.RemoteAddr()
+	clientState.log = SLog.Scope(fmt.Sprintf("Client %s", c.RemoteAddr()))
+	clientState.conn = c
+	clientState.running = true
 
 	serverState.PushClient(clientState)
 

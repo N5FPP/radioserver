@@ -1,11 +1,30 @@
 package main
 
 import (
+	"github.com/google/uuid"
 	"github.com/racerxdl/radioserver/SLog"
 	"net"
 	"sync"
 	"time"
 )
+
+type ChannelGeneratorState struct {
+	streaming bool
+	streamingMode uint32
+
+	// Channel Mode
+	iqFormat uint32
+	iqCenterFrequency uint32
+	iqDecimation uint32
+
+	// FFT Settings
+	fftFormat uint32
+	fftDecimation uint32
+	fftDBOffset int32
+	fftDisplayPixels uint32
+	fftCenterFrequency uint32
+	fftDBRange uint32
+}
 
 type ClientState struct {
 	uuid		  string
@@ -31,6 +50,41 @@ type ClientState struct {
 	cmdBody        []uint8
 	parserPosition uint32
 	syncInfo       ClientSync
+
+	lastPingTime   int64
+
+	// Channel Generator
+	cgs ChannelGeneratorState
+}
+
+func CreateClientState() *ClientState {
+	return &ClientState{
+		uuid: uuid.New().String(),
+		buffer: make([]uint8, 64 * 1024),
+		currentState: ParserAcquiringHeader,
+		connectedSince: time.Now(),
+		receivedBytes: 0,
+		sendBytes: 0,
+		running: false,
+		packetSent: 0,
+		cmdReceived: 0,
+		parserPosition: 0,
+		headerBuffer: make([]uint8, MessageHeaderSize),
+		connMtx: sync.Mutex{},
+		cgs: ChannelGeneratorState{
+			streaming: false,
+			streamingMode: StreamModeIQOnly,
+			iqFormat: StreamFormatFloat,
+			iqCenterFrequency: 0,
+			iqDecimation: 0,
+			fftFormat: StreamFormatUint8,
+			fftDecimation: 0,
+			fftDBOffset: 0,
+			fftDisplayPixels: defaultFFTDisplayPixels,
+			fftCenterFrequency: 0,
+			fftDBRange: defaultFFTRange,
+		},
+	}
 }
 
 func (state *ClientState) Log(str interface{}, v ...interface{}) *ClientState {
@@ -84,8 +138,10 @@ func (state *ClientState) SendSync() {
 }
 
 func (state *ClientState) SendPong() {
-	// TODO
-	state.Error("Pong Not implemented!")
+	data := CreatePong(state)
+	if !state.SendData(data) {
+		state.Error("Error sending pong packet")
+	}
 }
 
 func (state *ClientState) SetSetting(setting uint32, args []uint32) bool {
@@ -118,7 +174,7 @@ func (state *ClientState) SetSetting(setting uint32, args []uint32) bool {
 }
 
 func (state *ClientState) SetStreamingMode(mode uint32) bool {
-	state.Error("Set Streaming Mode Not implemented!")
+	state.cgs.streamingMode = mode
 	return true
 }
 func (state *ClientState) SetStreamingEnabled(enabled bool) bool {
@@ -128,49 +184,59 @@ func (state *ClientState) SetStreamingEnabled(enabled bool) bool {
 	}
 
 	state.Log("Streaming %s", enabledString)
-
-	// TODO: Enable Streaming
+	state.cgs.streaming = true
 
 	return false
 }
 func (state *ClientState) SetIQFormat(format uint32) bool {
-	state.Error("Set IQ Format Not implemented!")
-	return false
+	state.cgs.iqFormat = format
+	return true
 }
 func (state *ClientState) SetGain(gain uint32) bool {
 	state.Error("Set Gain Not implemented!")
 	return false
 }
 func (state *ClientState) SetIQFrequency(frequency uint32) bool {
-	state.Error("Set IQ Frequency Not implemented!")
-	return false
+	state.cgs.iqCenterFrequency = frequency
+	return true
 }
 func (state *ClientState) SetIQDecimation(decimation uint32) bool {
-	state.Error("Set IQ Decimation Not implemented!")
+	if serverState.deviceInfo.DecimationStageCount >= decimation {
+		state.cgs.iqDecimation = decimation
+		return true
+	}
+
 	return false
 }
 func (state *ClientState) SetFFTFormat(format uint32) bool {
-	state.Error("Set FFT Format Not implemented!")
-	return false
+	state.cgs.fftFormat = format
+	return true
 }
 
-func (state *ClientState) SetFFTFrequency(decimation uint32) bool {
-	state.Error("Set FFT Frequency Not implemented!")
-	return false
+func (state *ClientState) SetFFTFrequency(frequency uint32) bool {
+	state.cgs.fftCenterFrequency = frequency
+	return true
 }
 func (state *ClientState) SetFFTDecimation(decimation uint32) bool {
-	state.Error("Set FFT Decimation Not implemented!")
+	if serverState.deviceInfo.DecimationStageCount >= decimation {
+		state.cgs.fftDecimation = decimation
+		return true
+	}
+
 	return false
 }
 func (state *ClientState) SetFFTDBOffset(offset int32) bool {
-	state.Error("Set FFT dB Offset Not implemented!")
-	return false
+	state.cgs.fftDBOffset = offset
+	return true
 }
 func (state *ClientState) SetFFTDBRange(fftRange uint32) bool {
-	state.Error("Set FFT dB Range Not implemented!")
+	state.cgs.fftDBRange = fftRange
 	return false
 }
 func (state *ClientState) SetFFTDisplayPixels(pixels uint32) bool {
-	state.Error("Set FFT Display Pixels Not implemented!")
+	if pixels >= FFTMinDisplayPixels && pixels <= FFTMaxDisplayPixels {
+		state.cgs.fftDisplayPixels = pixels
+		return true
+	}
 	return false
 }
