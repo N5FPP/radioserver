@@ -1,4 +1,4 @@
-package main
+package protocol
 
 import (
 	"fmt"
@@ -8,21 +8,25 @@ import (
 // Most of the constants here are to be compatible with SpyServer
 // Some extensions were made to support different modes / SDRs
 
-// Defined by ((major) << 24) | ((minor) << 16) | (revision)
+// Defined by ((Major) << 24) | ((Minor) << 16) | (Revision)
 // Spyserver Standard
 
 type Version struct {
-	major    int
-	minor    int
-	revision int
+	Major    int
+	Minor    int
+	Revision int
 }
 
 func (v *Version) String() string {
-	return fmt.Sprintf("%d.%d.%d", v.major, v.minor, v.revision)
+	return fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Revision)
+}
+
+func (v *Version) ToUint32() uint32 {
+	return GenProtocolVersion(*v)
 }
 
 func GenProtocolVersion(version Version) uint32 {
-	return uint32(((version.major) << 24) | ((version.minor) << 16) | (version.revision))
+	return uint32(((version.Major) << 24) | ((version.Minor) << 16) | (version.Revision))
 }
 
 func SplitProtocolVersion(protocol uint32) Version {
@@ -31,19 +35,32 @@ func SplitProtocolVersion(protocol uint32) Version {
 	revision := int(protocol & 0xFFFF)
 
 	return Version{
-		major:    major,
-		minor:    minor,
-		revision: revision,
+		Major:    major,
+		Minor:    minor,
+		Revision: revision,
 	}
 }
 
-var ServerVersion = Version{
-	major:    2,
-	minor:    0,
-	revision: 1700,
-}
+const DefaultPort = 5555
+const DefaultFFTDisplayPixels = 2000
+const DefaultFFTRange = 127
 
-var ProtocolVersion = GenProtocolVersion(ServerVersion)
+// region Limit Values
+const FFTMaxDisplayPixels = 1 << 15
+const FFTMinDisplayPixels = 100
+const FFTMaxDBRange = 150
+const FFTMinDBRange = 10
+const FFTMaxDBOffset = 100
+
+// endregion
+
+// region Internal States
+const (
+	ParserAcquiringHeader = iota
+	ParserReadingData     = iota
+)
+
+// endregion
 
 // DeviceIds IDs
 const (
@@ -214,11 +231,6 @@ const (
 	MsgTypeUint8FFT    = 301
 )
 
-const (
-	ParserAcquiringHeader = iota
-	ParserReadingData     = iota
-)
-
 type MessageHeader struct {
 	ProtocolID     uint32
 	MessageType    uint32
@@ -260,7 +272,7 @@ type ClientSync struct {
 }
 
 type PingPacket struct {
-	timestamp int64
+	Timestamp int64
 }
 
 const MessageHeaderSize = uint32(unsafe.Sizeof(MessageHeader{}))

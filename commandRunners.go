@@ -1,14 +1,18 @@
 package main
 
-import "time"
+import (
+	"github.com/racerxdl/radioserver/StateModels"
+	"github.com/racerxdl/radioserver/protocol"
+	"time"
+)
 
-func RunCmdHello(state *ClientState) {
-	version, name := ParseCmdHelloBody(state.cmdBody)
+func RunCmdHello(state *StateModels.ClientState) {
+	version, name := protocol.ParseCmdHelloBody(state.CmdBody)
 	state.Info("Received Hello: %s - %s", version.String(), name)
-	state.name = name
-	state.clientVersion = version
+	state.Name = name
+	state.ClientVersion = version
 
-	data := CreateDeviceInfo(state)
+	data := StateModels.CreateDeviceInfo(state)
 	if !state.SendData(data) {
 		state.Error("Error sending deviceInfo packet")
 	}
@@ -16,19 +20,20 @@ func RunCmdHello(state *ClientState) {
 	state.SendSync()
 }
 
-func RunCmdGetSetting(state *ClientState) {
-
+func RunCmdGetSetting(state *StateModels.ClientState) {
+	// TODO
+	state.Warn("!!!! RunCmdGetSetting not implemented !!!!")
 }
 
-func RunCmdSetSetting(state *ClientState) {
-	setting, args := ParseCmdSetSettingBody(state.cmdBody)
+func RunCmdSetSetting(state *StateModels.ClientState) {
+	setting, args := protocol.ParseCmdSetSettingBody(state.CmdBody)
 
-	if !IsSettingPossible(setting) {
+	if !protocol.IsSettingPossible(setting) {
 		state.Error("Invalid Setting %d", setting)
 		return
 	}
 
-	settingName := SettingNames[setting]
+	settingName := protocol.SettingNames[setting]
 	state.Debug("Set Setting: %s => %d", settingName, args)
 
 	if !state.SetSetting(setting, args) {
@@ -37,16 +42,16 @@ func RunCmdSetSetting(state *ClientState) {
 
 	state.SendSync()
 
-	if SettingAffectsGlobal(setting) {
+	if protocol.SettingAffectsGlobal(setting) {
 		go serverState.SendSync()
 	}
 }
 
-func RunCmdPing(state *ClientState) {
-	timestamp := ParseCmdPingBody(state.cmdBody)
+func RunCmdPing(state *StateModels.ClientState) {
+	timestamp := protocol.ParseCmdPingBody(state.CmdBody)
 	delta := float64(time.Now().UnixNano()-timestamp) / 1e6
 	state.Debug("Received PING %.2f ms", delta)
 
-	state.lastPingTime = timestamp
+	state.LastPingTime = timestamp
 	state.SendPong()
 }

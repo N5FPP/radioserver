@@ -1,12 +1,15 @@
 package main
 
-import "github.com/racerxdl/radioserver/SLog"
+import (
+	"github.com/racerxdl/radioserver/SLog"
+	"github.com/racerxdl/radioserver/protocol"
+)
 
 func main() {
 	SLog.Info("RadioServer - %s", ServerVersion.String())
 
-	serverState.deviceInfo = DeviceInfo{
-		DeviceType:           DeviceRtlsdr,
+	serverState.DeviceInfo = protocol.DeviceInfo{
+		DeviceType:           protocol.DeviceRtlsdr,
 		DeviceSerial:         0,
 		MaximumSampleRate:    10e6,
 		MaximumBandwidth:     10e6,

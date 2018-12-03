@@ -3,83 +3,82 @@ package main
 import (
 	"fmt"
 	"github.com/racerxdl/radioserver/SLog"
+	"github.com/racerxdl/radioserver/StateModels"
+	"github.com/racerxdl/radioserver/protocol"
 	"math/rand"
 	"net"
-	"sync"
 	"time"
 )
 
 var tcpSlog = SLog.Scope("TCP Server")
 var tcpServerStatus = false
-var listenPort = defaultPort
-var serverState = ServerState{
-	clientListMtx: sync.Mutex{},
-	clients:       make([]*ClientState, 0),
-}
+var listenPort = protocol.DefaultPort
+var serverState = StateModels.CreateServerState()
 
 const defaultReadTimeout = 1000
 
-func parseHttpError(err error, state *ClientState) {
+func parseHttpError(err error, state *StateModels.ClientState) {
 	if err.Error() == "EOF" {
-		state.running = false
+		state.Running = false
 		return
 	}
 
 	switch e := err.(type) {
 	case net.Error:
 		if !e.Timeout() {
-			if tcpServerStatus && state.running {
-				state.log.Error("Error receiving data: %s", e)
+			if tcpServerStatus && state.Running {
+				state.Error("Error receiving data: %s", e)
 			}
-			state.running = false
+			state.Running = false
 		}
 		break
 	default:
-		if tcpServerStatus && state.running {
-			state.log.Error("Error receiving data: %s", e)
+		if tcpServerStatus && state.Running {
+			state.Error("Error receiving data: %s", e)
 		}
-		state.running = false
+		state.Running = false
 		break
 	}
 }
 
 func handleConnection(c net.Conn) {
-	var clientState = CreateClientState()
+	var clientState = StateModels.CreateClientState()
 
-	clientState.addr = c.RemoteAddr()
-	clientState.log = SLog.Scope(fmt.Sprintf("Client %s", c.RemoteAddr()))
-	clientState.conn = c
-	clientState.running = true
+	clientState.Addr = c.RemoteAddr()
+	clientState.LogInstance = SLog.Scope(fmt.Sprintf("Client %s", c.RemoteAddr()))
+	clientState.Conn = c
+	clientState.Running = true
+	clientState.ServerState = serverState
 
 	serverState.PushClient(clientState)
 
-	tcpSlog.Log("New connection from %s", clientState.addr)
+	tcpSlog.Log("New connection from %s", clientState.Addr)
 
 	for {
-		if !tcpServerStatus || !clientState.running {
+		if !tcpServerStatus || !clientState.Running {
 			break
 		}
 
 		err := c.SetReadDeadline(time.Now().Add(defaultReadTimeout))
-		n, err := c.Read(clientState.buffer)
+		n, err := c.Read(clientState.Buffer)
 
 		if err != nil {
 			parseHttpError(err, clientState)
 		}
 
-		if !clientState.running {
+		if !clientState.Running {
 			break
 		}
 
 		if n > 0 {
-			clientState.log.Debug("Received %d bytes from client!", n)
-			var sl = clientState.buffer[:n]
+			clientState.Debug("Received %d bytes from client!", n)
+			var sl = clientState.Buffer[:n]
 			parseMessage(clientState, sl)
 		}
 	}
 
 	serverState.RemoveClient(clientState)
-	tcpSlog.Log("Connection closed from %s", clientState.addr)
+	tcpSlog.Log("Connection closed from %s", clientState.Addr)
 	c.Close()
 
 }

@@ -1,16 +1,26 @@
-package main
+package StateModels
 
-import "sync"
+import (
+	"github.com/racerxdl/radioserver/protocol"
+	"sync"
+)
 
 type ServerState struct {
-	deviceInfo    DeviceInfo
+	DeviceInfo    protocol.DeviceInfo
 	clients       []*ClientState
 	clientListMtx sync.Mutex
 }
 
+func CreateServerState() *ServerState {
+	return &ServerState{
+		clientListMtx: sync.Mutex{},
+		clients:       make([]*ClientState, 0),
+	}
+}
+
 func (s *ServerState) indexOfClient(state *ClientState) int {
 	for k, v := range s.clients {
-		if v.uuid == state.uuid {
+		if v.UUID == state.UUID {
 			return k
 		}
 	}

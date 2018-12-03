@@ -1,131 +1,136 @@
-package main
+package StateModels
 
 import (
 	"github.com/google/uuid"
 	"github.com/racerxdl/radioserver/SLog"
+	"github.com/racerxdl/radioserver/protocol"
 	"net"
 	"sync"
 	"time"
 )
 
 type ChannelGeneratorState struct {
-	streaming     bool
-	streamingMode uint32
+	Streaming     bool
+	StreamingMode uint32
 
 	// Channel Mode
-	iqFormat          uint32
-	iqCenterFrequency uint32
-	iqDecimation      uint32
+	IQFormat          uint32
+	IQCenterFrequency uint32
+	IQDecimation      uint32
 
 	// FFT Settings
-	fftFormat          uint32
-	fftDecimation      uint32
-	fftDBOffset        int32
-	fftDisplayPixels   uint32
-	fftCenterFrequency uint32
-	fftDBRange         uint32
+	FFTFormat          uint32
+	FFTDecimation      uint32
+	FFTDBOffset        int32
+	FFTDisplayPixels   uint32
+	FFTCenterFrequency uint32
+	FFTDBRange         uint32
 }
 
 type ClientState struct {
-	uuid          string
-	buffer        []uint8
-	headerBuffer  []uint8
-	log           *SLog.Instance
-	addr          net.Addr
-	conn          net.Conn
-	running       bool
-	name          string
-	clientVersion Version
+	UUID          string
+	Buffer        []uint8
+	HeaderBuffer  []uint8
+	LogInstance   *SLog.Instance
+	Addr          net.Addr
+	Conn          net.Conn
+	Running       bool
+	Name          string
+	ClientVersion protocol.Version
 	connMtx       sync.Mutex
 
-	currentState   int
-	receivedBytes  uint64
-	sendBytes      uint64
-	connectedSince time.Time
-	cmdReceived    uint64
-	packetSent     uint64
+	CurrentState   int
+	ReceivedBytes  uint64
+	SentBytes      uint64
+	ConnectedSince time.Time
+	CmdReceived    uint64
+	SentPackets    uint64
+
+	ServerVersion protocol.Version
+	ServerState   *ServerState
 
 	// Command State
-	cmd            CommandHeader
-	cmdBody        []uint8
-	parserPosition uint32
-	syncInfo       ClientSync
+	Cmd            protocol.CommandHeader
+	CmdBody        []uint8
+	ParserPosition uint32
+	SyncInfo       protocol.ClientSync
 
-	lastPingTime int64
+	LastPingTime int64
 
 	// Channel Generator
-	cgs ChannelGeneratorState
+	CGS ChannelGeneratorState
 }
 
 func CreateClientState() *ClientState {
 	return &ClientState{
-		uuid:           uuid.New().String(),
-		buffer:         make([]uint8, 64*1024),
-		currentState:   ParserAcquiringHeader,
-		connectedSince: time.Now(),
-		receivedBytes:  0,
-		sendBytes:      0,
-		running:        false,
-		packetSent:     0,
-		cmdReceived:    0,
-		parserPosition: 0,
-		headerBuffer:   make([]uint8, MessageHeaderSize),
+		UUID:           uuid.New().String(),
+		Buffer:         make([]uint8, 64*1024),
+		CurrentState:   protocol.ParserAcquiringHeader,
+		ConnectedSince: time.Now(),
+		ReceivedBytes:  0,
+		SentBytes:      0,
+		Running:        false,
+		SentPackets:    0,
+		CmdReceived:    0,
+		ParserPosition: 0,
+		LogInstance:    SLog.Scope("ClientState"),
+		HeaderBuffer:   make([]uint8, protocol.MessageHeaderSize),
 		connMtx:        sync.Mutex{},
-		cgs: ChannelGeneratorState{
-			streaming:          false,
-			streamingMode:      StreamModeIQOnly,
-			iqFormat:           StreamFormatInvalid,
-			iqCenterFrequency:  0,
-			iqDecimation:       0,
-			fftFormat:          StreamFormatInvalid,
-			fftDecimation:      0,
-			fftDBOffset:        0,
-			fftDisplayPixels:   defaultFFTDisplayPixels,
-			fftCenterFrequency: 0,
-			fftDBRange:         defaultFFTRange,
+		CGS: ChannelGeneratorState{
+			Streaming:          false,
+			StreamingMode:      protocol.StreamModeIQOnly,
+			IQFormat:           protocol.StreamFormatInvalid,
+			IQCenterFrequency:  0,
+			IQDecimation:       0,
+			FFTFormat:          protocol.StreamFormatInvalid,
+			FFTDecimation:      0,
+			FFTDBOffset:        0,
+			FFTDisplayPixels:   protocol.DefaultFFTDisplayPixels,
+			FFTCenterFrequency: 0,
+			FFTDBRange:         protocol.DefaultFFTRange,
 		},
 	}
 }
 
 func (state *ClientState) Log(str interface{}, v ...interface{}) *ClientState {
-	state.log.Log(str, v...)
+	state.LogInstance.Log(str, v...)
 	return state
 }
 
 func (state *ClientState) Info(str interface{}, v ...interface{}) *ClientState {
-	state.log.Info(str, v...)
+	state.LogInstance.Info(str, v...)
 	return state
 }
 
 func (state *ClientState) Debug(str interface{}, v ...interface{}) *ClientState {
-	state.log.Debug(str, v...)
+	state.LogInstance.Debug(str, v...)
 	return state
 }
 
 func (state *ClientState) Warn(str interface{}, v ...interface{}) *ClientState {
-	state.log.Warn(str, v...)
+	state.LogInstance.Warn(str, v...)
 	return state
 }
 
 func (state *ClientState) Error(str interface{}, v ...interface{}) *ClientState {
-	state.log.Error(str, v...)
+	state.LogInstance.Error(str, v...)
 	return state
 }
 
 func (state *ClientState) Fatal(str interface{}, v ...interface{}) {
-	state.log.Fatal(str, v)
+	state.LogInstance.Fatal(str, v)
 }
 
 func (state *ClientState) SendData(buffer []uint8) bool {
 	state.connMtx.Lock()
 	defer state.connMtx.Unlock()
 
-	_, err := state.conn.Write(buffer)
+	_, err := state.Conn.Write(buffer)
 	if err != nil {
-		state.log.Error("Error sending data: %s", err)
+		state.LogInstance.Error("Error sending data: %s", err)
 		return false
 	}
-	state.packetSent++
+	state.SentPackets++
 
 	return true
 }
@@ -146,27 +151,27 @@ func (state *ClientState) SendPong() {
 
 func (state *ClientState) SetSetting(setting uint32, args []uint32) bool {
 	switch setting {
-	case SettingStreamingMode:
+	case protocol.SettingStreamingMode:
 		return state.SetStreamingMode(args[0])
-	case SettingStreamingEnabled:
+	case protocol.SettingStreamingEnabled:
 		return state.SetStreamingEnabled(args[0] == 1)
-	case SettingGain:
+	case protocol.SettingGain:
 		return state.SetGain(args[0])
-	case SettingIqFormat:
+	case protocol.SettingIqFormat:
 		return state.SetIQFormat(args[0])
-	case SettingIqFrequency:
+	case protocol.SettingIqFrequency:
 		return state.SetIQFrequency(args[0])
-	case SettingIqDecimation:
+	case protocol.SettingIqDecimation:
 		return state.SetIQDecimation(args[0])
-	case SettingFFTFormat:
+	case protocol.SettingFFTFormat:
 		return state.SetFFTFormat(args[0])
-	case SettingFFTFrequency:
+	case protocol.SettingFFTFrequency:
 		return state.SetFFTFrequency(args[0])
-	case SettingFFTDecimation:
+	case protocol.SettingFFTDecimation:
 		return state.SetFFTDecimation(args[0])
-	case SettingFFTDbOffset:
+	case protocol.SettingFFTDbOffset:
 		return state.SetFFTDBOffset(int32(args[0]))
-	case SettingFFTDisplayPixels:
+	case protocol.SettingFFTDisplayPixels:
 		return state.SetFFTDisplayPixels(args[0])
 	}
 
@@ -174,7 +179,7 @@ func (state *ClientState) SetSetting(setting uint32, args []uint32) bool {
 }
 
 func (state *ClientState) SetStreamingMode(mode uint32) bool {
-	state.cgs.streamingMode = mode
+	state.CGS.StreamingMode = mode
 	return true
 }
 func (state *ClientState) SetStreamingEnabled(enabled bool) bool {
@@ -184,12 +189,12 @@ func (state *ClientState) SetStreamingEnabled(enabled bool) bool {
 	}
 
 	state.Log("Streaming %s", enabledString)
-	state.cgs.streaming = true
+	state.CGS.Streaming = true
 
 	return false
 }
 func (state *ClientState) SetIQFormat(format uint32) bool {
-	state.cgs.iqFormat = format
+	state.CGS.IQFormat = format
 	return true
 }
 func (state *ClientState) SetGain(gain uint32) bool {
@@ -197,45 +202,47 @@ func (state *ClientState) SetGain(gain uint32) bool {
 	return false
 }
 func (state *ClientState) SetIQFrequency(frequency uint32) bool {
-	state.cgs.iqCenterFrequency = frequency
+	state.CGS.IQCenterFrequency = frequency
 	return true
 }
 func (state *ClientState) SetIQDecimation(decimation uint32) bool {
-	if serverState.deviceInfo.DecimationStageCount >= decimation {
-		state.cgs.iqDecimation = decimation
+	if state.ServerState.DeviceInfo.DecimationStageCount >= decimation {
+		state.CGS.IQDecimation = decimation
 		return true
 	}
 
 	return false
 }
 func (state *ClientState) SetFFTFormat(format uint32) bool {
-	state.cgs.fftFormat = format
+	state.CGS.FFTFormat = format
 	return true
 }
 
 func (state *ClientState) SetFFTFrequency(frequency uint32) bool {
-	state.cgs.fftCenterFrequency = frequency
+	state.CGS.FFTCenterFrequency = frequency
 	return true
 }
+
 func (state *ClientState) SetFFTDecimation(decimation uint32) bool {
-	if serverState.deviceInfo.DecimationStageCount >= decimation {
-		state.cgs.fftDecimation = decimation
+	if state.ServerState.DeviceInfo.DecimationStageCount >= decimation {
+		state.CGS.FFTDecimation = decimation
 		return true
 	}
 
 	return false
 }
+
 func (state *ClientState) SetFFTDBOffset(offset int32) bool {
-	state.cgs.fftDBOffset = offset
+	state.CGS.FFTDBOffset = offset
 	return true
 }
 func (state *ClientState) SetFFTDBRange(fftRange uint32) bool {
-	state.cgs.fftDBRange = fftRange
+	state.CGS.FFTDBRange = fftRange
 	return false
 }
 func (state *ClientState) SetFFTDisplayPixels(pixels uint32) bool {
-	if pixels >= FFTMinDisplayPixels && pixels <= FFTMaxDisplayPixels {
-		state.cgs.fftDisplayPixels = pixels
+	if pixels >= protocol.FFTMinDisplayPixels && pixels <= protocol.FFTMaxDisplayPixels {
+		state.CGS.FFTDisplayPixels = pixels
 		return true
 	}
 	return false

@@ -1,18 +1,18 @@
-package main
+package tools
 
 import (
 	"bytes"
 	"encoding/binary"
 )
 
-func min(a, b uint32) uint32 {
+func Min(a, b uint32) uint32 {
 	if a < b {
 		return a
 	}
 	return b
 }
 
-func structToBytes(s interface{}) []uint8 {
+func StructToBytes(s interface{}) []uint8 {
 	var buff = new(bytes.Buffer)
 
 	binary.Write(buff, binary.LittleEndian, s)
@@ -21,7 +21,7 @@ func structToBytes(s interface{}) []uint8 {
 }
 
 // region Array Type Converters
-func unknownArrayToBytes(s []interface{}) []uint8 {
+func UnknownArrayToBytes(s []interface{}) []uint8 {
 	var buff = new(bytes.Buffer)
 
 	binary.Write(buff, binary.LittleEndian, s)
@@ -29,7 +29,7 @@ func unknownArrayToBytes(s []interface{}) []uint8 {
 	return buff.Bytes()
 }
 
-func float32ArrayToBytes(s []interface{}) []uint8 {
+func Float32ArrayToBytes(s []interface{}) []uint8 {
 	var buff = new(bytes.Buffer)
 
 	for i := 0; i < len(s); i++ {
@@ -39,7 +39,7 @@ func float32ArrayToBytes(s []interface{}) []uint8 {
 	return buff.Bytes()
 }
 
-func float64ArrayToBytes(s []interface{}) []uint8 {
+func Float64ArrayToBytes(s []interface{}) []uint8 {
 	var buff = new(bytes.Buffer)
 
 	for i := 0; i < len(s); i++ {
@@ -49,7 +49,7 @@ func float64ArrayToBytes(s []interface{}) []uint8 {
 	return buff.Bytes()
 }
 
-func int16ArrayToBytes(s []interface{}) []uint8 {
+func Int16ArrayToBytes(s []interface{}) []uint8 {
 	var buff = new(bytes.Buffer)
 
 	for i := 0; i < len(s); i++ {
@@ -59,7 +59,7 @@ func int16ArrayToBytes(s []interface{}) []uint8 {
 	return buff.Bytes()
 }
 
-func int8ArrayToBytes(s []interface{}) []uint8 {
+func Int8ArrayToBytes(s []interface{}) []uint8 {
 	var buff = new(bytes.Buffer)
 
 	for i := 0; i < len(s); i++ {
@@ -69,7 +69,7 @@ func int8ArrayToBytes(s []interface{}) []uint8 {
 	return buff.Bytes()
 }
 
-func complex64ArrayToBytes(s []interface{}) []uint8 {
+func Complex64ArrayToBytes(s []interface{}) []uint8 {
 	var buff = new(bytes.Buffer)
 
 	for i := 0; i < len(s); i++ {
@@ -79,7 +79,7 @@ func complex64ArrayToBytes(s []interface{}) []uint8 {
 	return buff.Bytes()
 }
 
-func uint8ArrayToBytes(s []interface{}) []uint8 {
+func UInt8ArrayToBytes(s []interface{}) []uint8 {
 	var buff = make([]uint8, len(s))
 
 	for i := 0; i < len(s); i++ {
@@ -91,25 +91,28 @@ func uint8ArrayToBytes(s []interface{}) []uint8 {
 
 // endregion
 
-func arrayToBytes(s []interface{}) []uint8 {
+func ArrayToBytes(s []interface{}) []uint8 {
+	var va interface{}
 	if len(s) > 0 {
 		var elem = s[0]
-		switch _ := elem.(type) {
+		switch v := elem.(type) {
 		case float32:
-			return float32ArrayToBytes(s)
+			return Float32ArrayToBytes(s)
 		case float64:
-			return float64ArrayToBytes(s)
+			return Float64ArrayToBytes(s)
 		case complex64:
-			return complex64ArrayToBytes(s)
+			return Complex64ArrayToBytes(s)
 		case uint8:
-			return uint8ArrayToBytes(s)
+			return UInt8ArrayToBytes(s)
 		case int8:
-			return int8ArrayToBytes(s)
+			return Int8ArrayToBytes(s)
 		case int16:
-			return int16ArrayToBytes(s)
+			return Int16ArrayToBytes(s)
 		default:
-			return unknownArrayToBytes(s)
+			va = v
+			return UnknownArrayToBytes(s)
 		}
 	}
+	va = va
 	return make([]uint8, 0)
 }
