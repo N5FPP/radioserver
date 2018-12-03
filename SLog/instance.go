@@ -13,8 +13,10 @@ type Instance struct {
 }
 
 func (i *Instance) Log(str interface{}, v ...interface{}) *Instance {
-	var c = aurora.Cyan
-	log.Printf(logBaseFormat, c(aurora.Bold(i.scope)).String(), c(fmt.Sprintf(asString(str), v...)))
+	if infoEnabled {
+		var c = aurora.Cyan
+		log.Printf(logBaseFormat, c(aurora.Bold(i.scope)).String(), c(fmt.Sprintf(asString(str), v...)))
+	}
 	return i
 }
 
@@ -23,20 +25,26 @@ func (i *Instance) Info(str interface{}, v ...interface{}) *Instance {
 }
 
 func (i *Instance) Debug(str interface{}, v ...interface{}) *Instance {
-	var c = aurora.Magenta
-	log.Printf(logBaseFormat, c(aurora.Bold(i.scope)).String(), c(fmt.Sprintf(asString(str), v...)))
+	if debugEnabled {
+		var c = aurora.Magenta
+		log.Printf(logBaseFormat, c(aurora.Bold(i.scope)).String(), c(fmt.Sprintf(asString(str), v...)))
+	}
 	return i
 }
 
 func (i *Instance) Warn(str interface{}, v ...interface{}) *Instance {
-	var c = aurora.Brown
-	log.Printf(logBaseFormat, c(aurora.Bold(i.scope)).String(), c(fmt.Sprintf(asString(str), v...)))
+	if warnEnabled {
+		var c = aurora.Brown
+		log.Printf(logBaseFormat, c(aurora.Bold(i.scope)).String(), c(fmt.Sprintf(asString(str), v...)))
+	}
 	return i
 }
 
 func (i *Instance) Error(str interface{}, v ...interface{}) *Instance {
-	var c = aurora.Red
-	log.Printf(logBaseFormat, c(aurora.Bold(i.scope)).String(), c(fmt.Sprintf(asString(str), v...)))
+	if errorEnabled {
+		var c = aurora.Red
+		log.Printf(logBaseFormat, c(aurora.Bold(i.scope)).String(), c(fmt.Sprintf(asString(str), v...)))
+	}
 	return i
 }
 

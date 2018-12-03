@@ -7,11 +7,11 @@ func CreateDeviceInfo(state *ClientState) []uint8 {
 	var bodyData = structToBytes(deviceInfo)
 
 	var header = MessageHeader{
-		ProtocolID: ProtocolVersion,
-		MessageType: MsgTypeDeviceInfo,
-		StreamType: StreamTypeStatus,
+		ProtocolID:     ProtocolVersion,
+		MessageType:    MsgTypeDeviceInfo,
+		StreamType:     StreamTypeStatus,
 		SequenceNumber: uint32(state.packetSent & 0xFFFFFFFF),
-		BodySize: uint32(len(bodyData)),
+		BodySize:       uint32(len(bodyData)),
 	}
 
 	return append(structToBytes(header), bodyData...)
@@ -22,16 +22,15 @@ func CreateClientSync(state *ClientState) []uint8 {
 	var bodyData = structToBytes(syncInfo)
 
 	var header = MessageHeader{
-		ProtocolID: ProtocolVersion,
-		MessageType: MsgTypeClientSync,
-		StreamType: StreamTypeStatus,
+		ProtocolID:     ProtocolVersion,
+		MessageType:    MsgTypeClientSync,
+		StreamType:     StreamTypeStatus,
 		SequenceNumber: uint32(state.packetSent & 0xFFFFFFFF),
-		BodySize: uint32(len(bodyData)),
+		BodySize:       uint32(len(bodyData)),
 	}
 
 	return append(structToBytes(header), bodyData...)
 }
-
 
 func CreatePong(state *ClientState) []uint8 {
 	var ts = time.Now()
@@ -40,13 +39,12 @@ func CreatePong(state *ClientState) []uint8 {
 	}
 	var bodyData = structToBytes(pingPacket)
 
-
 	var header = MessageHeader{
-		ProtocolID: ProtocolVersion,
-		MessageType: MsgTypePong,
-		StreamType: StreamTypeStatus,
+		ProtocolID:     ProtocolVersion,
+		MessageType:    MsgTypePong,
+		StreamType:     StreamTypeStatus,
 		SequenceNumber: uint32(state.packetSent & 0xFFFFFFFF),
-		BodySize: uint32(len(bodyData)),
+		BodySize:       uint32(len(bodyData)),
 	}
 
 	return append(structToBytes(header), bodyData...)

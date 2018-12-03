@@ -14,7 +14,7 @@ var tcpServerStatus = false
 var listenPort = defaultPort
 var serverState = ServerState{
 	clientListMtx: sync.Mutex{},
-	clients: make([]*ClientState, 0),
+	clients:       make([]*ClientState, 0),
 }
 
 const defaultReadTimeout = 1000

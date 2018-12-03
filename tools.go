@@ -12,8 +12,7 @@ func min(a, b uint32) uint32 {
 	return b
 }
 
-
-func structToBytes(s interface {}) []uint8 {
+func structToBytes(s interface{}) []uint8 {
 	var buff = new(bytes.Buffer)
 
 	binary.Write(buff, binary.LittleEndian, s)

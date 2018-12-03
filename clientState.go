@@ -9,25 +9,25 @@ import (
 )
 
 type ChannelGeneratorState struct {
-	streaming bool
+	streaming     bool
 	streamingMode uint32
 
 	// Channel Mode
-	iqFormat uint32
+	iqFormat          uint32
 	iqCenterFrequency uint32
-	iqDecimation uint32
+	iqDecimation      uint32
 
 	// FFT Settings
-	fftFormat uint32
-	fftDecimation uint32
-	fftDBOffset int32
-	fftDisplayPixels uint32
+	fftFormat          uint32
+	fftDecimation      uint32
+	fftDBOffset        int32
+	fftDisplayPixels   uint32
 	fftCenterFrequency uint32
-	fftDBRange uint32
+	fftDBRange         uint32
 }
 
 type ClientState struct {
-	uuid		  string
+	uuid          string
 	buffer        []uint8
 	headerBuffer  []uint8
 	log           *SLog.Instance
@@ -36,7 +36,7 @@ type ClientState struct {
 	running       bool
 	name          string
 	clientVersion Version
-	connMtx		  sync.Mutex
+	connMtx       sync.Mutex
 
 	currentState   int
 	receivedBytes  uint64
@@ -51,7 +51,7 @@ type ClientState struct {
 	parserPosition uint32
 	syncInfo       ClientSync
 
-	lastPingTime   int64
+	lastPingTime int64
 
 	// Channel Generator
 	cgs ChannelGeneratorState
@@ -59,30 +59,30 @@ type ClientState struct {
 
 func CreateClientState() *ClientState {
 	return &ClientState{
-		uuid: uuid.New().String(),
-		buffer: make([]uint8, 64 * 1024),
-		currentState: ParserAcquiringHeader,
+		uuid:           uuid.New().String(),
+		buffer:         make([]uint8, 64*1024),
+		currentState:   ParserAcquiringHeader,
 		connectedSince: time.Now(),
-		receivedBytes: 0,
-		sendBytes: 0,
-		running: false,
-		packetSent: 0,
-		cmdReceived: 0,
+		receivedBytes:  0,
+		sendBytes:      0,
+		running:        false,
+		packetSent:     0,
+		cmdReceived:    0,
 		parserPosition: 0,
-		headerBuffer: make([]uint8, MessageHeaderSize),
-		connMtx: sync.Mutex{},
+		headerBuffer:   make([]uint8, MessageHeaderSize),
+		connMtx:        sync.Mutex{},
 		cgs: ChannelGeneratorState{
-			streaming: false,
-			streamingMode: StreamModeIQOnly,
-			iqFormat: StreamFormatFloat,
-			iqCenterFrequency: 0,
-			iqDecimation: 0,
-			fftFormat: StreamFormatUint8,
-			fftDecimation: 0,
-			fftDBOffset: 0,
-			fftDisplayPixels: defaultFFTDisplayPixels,
+			streaming:          false,
+			streamingMode:      StreamModeIQOnly,
+			iqFormat:           StreamFormatFloat,
+			iqCenterFrequency:  0,
+			iqDecimation:       0,
+			fftFormat:          StreamFormatUint8,
+			fftDecimation:      0,
+			fftDBOffset:        0,
+			fftDisplayPixels:   defaultFFTDisplayPixels,
 			fftCenterFrequency: 0,
-			fftDBRange: defaultFFTRange,
+			fftDBRange:         defaultFFTRange,
 		},
 	}
 }

@@ -100,6 +100,7 @@ const (
 	SettingIqFormat     = 100
 	SettingIqFrequency  = 101
 	SettingIqDecimation = 102
+	SettingDigitalGain  = 103
 
 	SettingFFTFormat        = 200
 	SettingFFTFrequency     = 201
@@ -118,6 +119,7 @@ var SettingNames = map[uint32]string{
 	SettingIqFormat:     "IQ Format",
 	SettingIqFrequency:  "IQ Frequency",
 	SettingIqDecimation: "IQ Decimation",
+	SettingDigitalGain:  "Digital Gain",
 
 	SettingFFTFormat:        "FFT Format",
 	SettingFFTFrequency:     "FFT Frequency",
@@ -127,7 +129,7 @@ var SettingNames = map[uint32]string{
 	SettingFFTDisplayPixels: "FFT Display Pixels",
 }
 
-var PossibleSettings = []uint32 {
+var PossibleSettings = []uint32{
 	SettingStreamingMode,
 	SettingStreamingEnabled,
 	SettingGain,
@@ -144,7 +146,7 @@ var PossibleSettings = []uint32 {
 	SettingFFTDisplayPixels,
 }
 
-var GlobalAffectedSettings = []uint32 {
+var GlobalAffectedSettings = []uint32{
 	SettingGain,
 }
 
@@ -180,7 +182,7 @@ const (
 	// StreamModeIQOnly only enables IQ Channel
 	StreamModeIQOnly = StreamTypeIQ
 
-	//StreamModeAFOnly  = StreamTypeAF
+	StreamModeAFOnly = StreamTypeAF
 
 	// StreamModeFFTOnly only enables FFT Channel
 	StreamModeFFTOnly = StreamTypeFFT
@@ -188,16 +190,16 @@ const (
 	// StreamModeFFTOnly only enables both IQ and FFT Channels
 	StreamModeFFTIQ = StreamTypeFFT | StreamTypeIQ
 
-	//StreamModeFFTAF   = StreamTypeFFT | StreamTypeAF
+	StreamModeFFTAF = StreamTypeFFT | StreamTypeAF
 )
 
 const (
-	StreamFormatDint4      = 0
-	StreamFormatUint8      = 1
-	StreamFormatInt16      = 2
-	StreamFormatInt24      = 3
-	StreamFormatFloat      = 4
-	StreamFormatCompressed = 5
+	StreamFormatInvalid = 0
+	StreamFormatUint8   = 1
+	StreamFormatInt16   = 2
+	StreamFormatInt24   = 3
+	StreamFormatFloat   = 4
+	StreamFormatDint4   = 5
 )
 
 const (
@@ -256,6 +258,9 @@ type DeviceInfo struct {
 	MaximumGainIndex     uint32
 	MinimumFrequency     uint32
 	MaximumFrequency     uint32
+	Resolution           uint32
+	MinimumIQDecimation  uint32
+	ForcedIQFormat       uint32
 }
 
 type ClientSync struct {

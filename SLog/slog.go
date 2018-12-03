@@ -1,7 +1,11 @@
 package SLog
 
-
 // region Global
+var debugEnabled = true
+var warnEnabled = true
+var errorEnabled = true
+var infoEnabled = true
+
 var glog = Instance{scope: "APP"}
 
 func Log(str interface{}, v ...interface{}) *Instance {
@@ -33,4 +37,18 @@ func Scope(scope string) *Instance {
 		scope: scope,
 	}
 }
+
+func SetDebug(enabled bool) {
+	debugEnabled = enabled
+}
+func SetWarning(enabled bool) {
+	warnEnabled = enabled
+}
+func SetInfo(enabled bool) {
+	infoEnabled = enabled
+}
+func SetError(enabled bool) {
+	errorEnabled = enabled
+}
+
 // endregion

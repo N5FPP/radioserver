@@ -3,8 +3,8 @@ package main
 import "sync"
 
 type ServerState struct {
-	deviceInfo DeviceInfo
-	clients []*ClientState
+	deviceInfo    DeviceInfo
+	clients       []*ClientState
 	clientListMtx sync.Mutex
 }
 

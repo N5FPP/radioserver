@@ -44,8 +44,8 @@ func RunCmdSetSetting(state *ClientState) {
 
 func RunCmdPing(state *ClientState) {
 	timestamp := ParseCmdPingBody(state.cmdBody)
-	delta := float64(time.Now().UnixNano() - timestamp) / 1e6
-	state.Log("Received PING %.2f ms", delta)
+	delta := float64(time.Now().UnixNano()-timestamp) / 1e6
+	state.Debug("Received PING %.2f ms", delta)
 
 	state.lastPingTime = timestamp
 	state.SendPong()

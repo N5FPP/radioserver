@@ -45,9 +45,9 @@ func parseBody(state *ClientState, buffer []uint8) uint32 {
 	consumed := uint32(0)
 
 	for len(buffer) > 0 {
-		toWrite := min(state.cmd.BodySize - state.parserPosition, uint32(len(buffer)))
+		toWrite := min(state.cmd.BodySize-state.parserPosition, uint32(len(buffer)))
 		for i := uint32(0); i < toWrite; i++ {
-			state.cmdBody[i + state.parserPosition] = buffer[i]
+			state.cmdBody[i+state.parserPosition] = buffer[i]
 		}
 		buffer = buffer[toWrite:]
 		consumed += toWrite
@@ -67,9 +67,9 @@ func parseHeader(state *ClientState, buffer []uint8) uint32 {
 	consumed := uint32(0)
 
 	for len(buffer) > 0 {
-		toWrite := min(CommandHeaderSize - state.parserPosition, uint32(len(buffer)))
+		toWrite := min(CommandHeaderSize-state.parserPosition, uint32(len(buffer)))
 		for i := uint32(0); i < toWrite; i++ {
-			state.headerBuffer[i + state.parserPosition] = buffer[i]
+			state.headerBuffer[i+state.parserPosition] = buffer[i]
 		}
 		buffer = buffer[toWrite:]
 		consumed += toWrite
