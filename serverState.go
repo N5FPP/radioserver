@@ -44,3 +44,7 @@ func (s *ServerState) SendSync() bool {
 
 	return true
 }
+
+func (s *ServerState) PushSamples(samples []complex64) {
+
+}

@@ -17,7 +17,7 @@ func ParseCmdHelloBody(data []uint8) (Version, string) {
 }
 
 func ParseCmdGetSettingBody(data []uint8) {
-
+	// TODO: Implement-me
 }
 
 func ParseCmdPingBody(data []uint8) int64 {

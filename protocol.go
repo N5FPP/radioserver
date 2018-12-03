@@ -40,7 +40,7 @@ func SplitProtocolVersion(protocol uint32) Version {
 var ServerVersion = Version{
 	major:    2,
 	minor:    0,
-	revision: 1558,
+	revision: 1700,
 }
 
 var ProtocolVersion = GenProtocolVersion(ServerVersion)
@@ -54,19 +54,18 @@ const (
 	DeviceRtlsdr    = 3
 
 	// Radio Server Standard
-	DeviceLimeSDRUSB  = 10000
-	DeviceLimeSDRMini = 10001
-	DeviceSpyServer   = 10002
-	DeviceHackRF      = 10003
+	DeviceLimeSDRUSB  = 100000
+	DeviceLimeSDRMini = 100001
+	DeviceSpyServer   = 100002
+	DeviceHackRF      = 100003
 )
 
 // DeviceNames names of the devices
 const (
-	DeviceInvalidName   = "Invalid Device"
-	DeviceAirspyOneName = "Airspy Mini / R2"
-	DeviceAirspyHFName  = "Airspy HF / HF+"
-	DeviceRtlsdrName    = "RTLSDR"
-
+	DeviceInvalidName     = "Invalid Device"
+	DeviceAirspyOneName   = "Airspy Mini / R2"
+	DeviceAirspyHFName    = "Airspy HF / HF+"
+	DeviceRtlsdrName      = "RTLSDR"
 	DeviceLimeSDRUSBName  = "LimeSDR USB"
 	DeviceLimeSDRMiniName = "LimeSDR Mini"
 	DeviceHackRFName      = "HackRF"
@@ -96,12 +95,10 @@ const (
 	SettingStreamingMode    = 0
 	SettingStreamingEnabled = 1
 	SettingGain             = 2
-
-	SettingIqFormat     = 100
-	SettingIqFrequency  = 101
-	SettingIqDecimation = 102
-	SettingDigitalGain  = 103
-
+	SettingIqFormat         = 100
+	SettingIqFrequency      = 101
+	SettingIqDecimation     = 102
+	SettingDigitalGain      = 103
 	SettingFFTFormat        = 200
 	SettingFFTFrequency     = 201
 	SettingFFTDecimation    = 202
@@ -115,12 +112,10 @@ var SettingNames = map[uint32]string{
 	SettingStreamingMode:    "Streaming Mode",
 	SettingStreamingEnabled: "Streaming Enabled",
 	SettingGain:             "Gain",
-
-	SettingIqFormat:     "IQ Format",
-	SettingIqFrequency:  "IQ Frequency",
-	SettingIqDecimation: "IQ Decimation",
-	SettingDigitalGain:  "Digital Gain",
-
+	SettingIqFormat:         "IQ Format",
+	SettingIqFrequency:      "IQ Frequency",
+	SettingIqDecimation:     "IQ Decimation",
+	SettingDigitalGain:      "Digital Gain",
 	SettingFFTFormat:        "FFT Format",
 	SettingFFTFrequency:     "FFT Frequency",
 	SettingFFTDecimation:    "FFT Decimation",
@@ -207,27 +202,16 @@ const (
 	MsgTypeClientSync  = 1
 	MsgTypePong        = 2
 	MsgTypeReadSetting = 3
-
-	MsgTypeUint8IQ = 100
-	MsgTypeInt16IQ = 101
-
-	MsgTypeInt24IQ = 102
-
-	MsgTypeFloatIQ = 103
-
-	MsgTypeCompressedIQ = 104
-
-	MsgTypeUint8AF      = 200
-	MsgTypeInt16AF      = 201
-	MsgTypeInt24AF      = 202
-	MsgTypeFloatAF      = 203
-	MsgTypeCompressedAF = 204
-
-	MsgTypeDint4FFT = 300
-
-	MsgTypeUint8FFT = 301
-
-	MsgTypeCompressedFFT = 302
+	MsgTypeUint8IQ     = 100
+	MsgTypeInt16IQ     = 101
+	MsgTypeInt24IQ     = 102
+	MsgTypeFloatIQ     = 103
+	MsgTypeUint8AF     = 200
+	MsgTypeInt16AF     = 201
+	MsgTypeInt24AF     = 202
+	MsgTypeFloatAF     = 203
+	MsgTypeDint4FFT    = 300
+	MsgTypeUint8FFT    = 301
 )
 
 const (

@@ -74,10 +74,10 @@ func CreateClientState() *ClientState {
 		cgs: ChannelGeneratorState{
 			streaming:          false,
 			streamingMode:      StreamModeIQOnly,
-			iqFormat:           StreamFormatFloat,
+			iqFormat:           StreamFormatInvalid,
 			iqCenterFrequency:  0,
 			iqDecimation:       0,
-			fftFormat:          StreamFormatUint8,
+			fftFormat:          StreamFormatInvalid,
 			fftDecimation:      0,
 			fftDBOffset:        0,
 			fftDisplayPixels:   defaultFFTDisplayPixels,

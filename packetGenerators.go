@@ -49,3 +49,17 @@ func CreatePong(state *ClientState) []uint8 {
 
 	return append(structToBytes(header), bodyData...)
 }
+
+func CreateDataPacket(state *ClientState, messageType uint32, samples []interface{}) []uint8 {
+	var bodyData = arrayToBytes(samples)
+
+	var header = MessageHeader{
+		ProtocolID:     ProtocolVersion,
+		MessageType:    messageType,
+		StreamType:     StreamTypeStatus,
+		SequenceNumber: uint32(state.packetSent & 0xFFFFFFFF),
+		BodySize:       uint32(len(bodyData)),
+	}
+
+	return append(structToBytes(header), bodyData...)
+}
