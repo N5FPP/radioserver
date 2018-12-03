@@ -59,6 +59,7 @@ type ClientState struct {
 
 	// Channel Generator
 	CGS ChannelGeneratorState
+	CG  ChannelGenerator
 }
 
 func CreateClientState() *ClientState {
