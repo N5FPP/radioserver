@@ -1,6 +1,7 @@
 package StateModels
 
 import (
+	"github.com/racerxdl/radioserver/frontends"
 	"github.com/racerxdl/radioserver/protocol"
 	"sync"
 )
@@ -9,6 +10,7 @@ type ServerState struct {
 	DeviceInfo    protocol.DeviceInfo
 	clients       []*ClientState
 	clientListMtx sync.Mutex
+	Frontend      frontends.Frontend
 }
 
 func CreateServerState() *ServerState {

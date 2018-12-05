@@ -83,7 +83,7 @@ func handleConnection(c net.Conn) {
 
 }
 
-func runServer() {
+func runServer(stopSignal chan bool) {
 	tcpSlog.Info("Starting TCP Server")
 	l, err := net.Listen("tcp4", fmt.Sprintf(":%d", listenPort))
 
@@ -100,10 +100,18 @@ func runServer() {
 
 	tcpServerStatus = true
 
+	go func() {
+		<- stopSignal
+		tcpSlog.Info("Received stop signal! Closing TCP Server...")
+		l.Close()
+	}()
+
 	for tcpServerStatus {
 		c, err := l.Accept()
 		if err != nil {
-			tcpSlog.Error("Error accepting client: %s", err)
+			if tcpServerStatus {
+				tcpSlog.Error("Error accepting client: %s", err)
+			}
 			tcpServerStatus = false
 			break
 		}
