@@ -42,13 +42,14 @@ func parseHttpError(err error, state *StateModels.ClientState) {
 }
 
 func handleConnection(c net.Conn) {
-	var clientState = StateModels.CreateClientState()
+	var clientState = StateModels.CreateClientState(serverState.Frontend.GetCenterFrequency())
 
 	clientState.Addr = c.RemoteAddr()
 	clientState.LogInstance = SLog.Scope(fmt.Sprintf("Client %s", c.RemoteAddr()))
 	clientState.Conn = c
 	clientState.Running = true
 	clientState.ServerState = serverState
+	clientState.ServerVersion = ServerVersion
 
 	serverState.PushClient(clientState)
 
@@ -71,12 +72,12 @@ func handleConnection(c net.Conn) {
 		}
 
 		if n > 0 {
-			clientState.Debug("Received %d bytes from client!", n)
+			// clientState.Debug("Received %d bytes from client!", n)
 			var sl = clientState.Buffer[:n]
 			parseMessage(clientState, sl)
 		}
 	}
-
+	clientState.FullStop()
 	serverState.RemoveClient(clientState)
 	tcpSlog.Log("Connection closed from %s", clientState.Addr)
 	c.Close()
@@ -101,7 +102,7 @@ func runServer(stopSignal chan bool) {
 	tcpServerStatus = true
 
 	go func() {
-		<- stopSignal
+		<-stopSignal
 		tcpSlog.Info("Received stop signal! Closing TCP Server...")
 		l.Close()
 	}()

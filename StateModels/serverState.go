@@ -11,6 +11,7 @@ type ServerState struct {
 	clients       []*ClientState
 	clientListMtx sync.Mutex
 	Frontend      frontends.Frontend
+	CanControl    uint32
 }
 
 func CreateServerState() *ServerState {
@@ -51,12 +52,20 @@ func (s *ServerState) SendSync() bool {
 	defer s.clientListMtx.Unlock()
 
 	for i := 0; i < len(s.clients); i++ {
-		go s.clients[i].SendSync()
+		s.clients[i].SendSync()
 	}
 
 	return true
 }
 
 func (s *ServerState) PushSamples(samples []complex64) {
+	var clientList []*ClientState
+	s.clientListMtx.Lock()
+	clientList = make([]*ClientState, len(s.clients))
+	copy(clientList, s.clients)
+	s.clientListMtx.Unlock()
 
+	for _, v := range clientList {
+		v.CG.PushSamples(samples)
+	}
 }

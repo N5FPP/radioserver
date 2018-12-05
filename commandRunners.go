@@ -36,14 +36,19 @@ func RunCmdSetSetting(state *StateModels.ClientState) {
 	settingName := protocol.SettingNames[setting]
 	state.Debug("Set Setting: %s => %d", settingName, args)
 
+	currentStreaming := state.CGS.Streaming
+
 	if !state.SetSetting(setting, args) {
 		return
 	}
 
-	state.SendSync()
+	if currentStreaming || currentStreaming != state.CGS.Streaming {
+		state.CG.UpdateSettings(state)
+		state.SendSync()
+	}
 
 	if protocol.SettingAffectsGlobal(setting) {
-		go serverState.SendSync()
+		serverState.SendSync()
 	}
 }
 

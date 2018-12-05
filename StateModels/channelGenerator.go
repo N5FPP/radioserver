@@ -3,63 +3,122 @@ package StateModels
 import (
 	"github.com/racerxdl/go.fifo"
 	"github.com/racerxdl/radioserver/SLog"
+	"github.com/racerxdl/radioserver/protocol"
 	"github.com/racerxdl/radioserver/tools"
 	"github.com/racerxdl/segdsp/dsp"
 	"sync"
+	"time"
 )
 
 var cgLog = SLog.Scope("ChannelGenerator")
 
-const maxFifoSize = 32 * 1024 * 1024    // In Bytes
-const maxFifoLength = (maxFifoSize) / 8 // In Complex64 Samples
+const maxFifoSize = 4096
+
+type OnFFTSamples func(samples []float32)
+type OnIQSamples func(samples []complex64)
 
 type ChannelGenerator struct {
-	decimator           *dsp.FirFilter
-	frequencyTranslator *dsp.FrequencyTranslator
+	iqFrequencyTranslator  *dsp.FrequencyTranslator
+	fftFrequencyTranslator *dsp.FrequencyTranslator
 
-	inputFifo        *fifo.Queue
-	running          bool
-	settingsMutex    sync.Mutex
-	routineNotify    *sync.Cond
-	routineNotifyMtx *sync.Mutex
+	inputFifo     *fifo.Queue
+	running       bool
+	settingsMutex sync.Mutex
+
+	fftEnabled bool
+	iqEnabled  bool
+
+	onIQSamples   OnIQSamples
+	onFFTSamples  OnFFTSamples
+	updateChannel chan bool
 }
 
 func CreateChannelGenerator() *ChannelGenerator {
-	var mtx = &sync.Mutex{}
-	return &ChannelGenerator{
-		inputFifo:        fifo.NewQueue(),
-		settingsMutex:    sync.Mutex{},
-		routineNotify:    sync.NewCond(mtx),
-		routineNotifyMtx: mtx,
+	var cg = &ChannelGenerator{
+		inputFifo:     fifo.NewQueue(),
+		settingsMutex: sync.Mutex{},
+		updateChannel: make(chan bool),
 	}
+
+	return cg
 }
 
 func (cg *ChannelGenerator) routine() {
-	cg.routineNotify.L.Lock()
-	defer cg.routineNotify.L.Unlock()
+	defer cg.waitAll()
 	for cg.running {
-		cg.routineNotify.Wait() // Wait for samples, or stop
+		select {
+		case <-cg.updateChannel:
+			if !cg.running {
+				break
+			}
+			cg.doWork()
+		case <-time.After(1 * time.Second):
+
+		}
 		if !cg.running {
 			break
 		}
-		cg.doWork()
 	}
 }
 
-func (cg *ChannelGenerator) doWork() {
+func (cg *ChannelGenerator) waitAll() {
+	var pending = true
+	cgLog.Debug("Waiting for all pending to process")
+	for pending {
+		select {
+		case <-cg.updateChannel:
+			time.Sleep(time.Millisecond * 10)
+		default:
+			pending = false
+		}
+	}
+	cgLog.Debug("Routine closed")
+}
 
+func (cg *ChannelGenerator) doWork() {
+	cg.inputFifo.UnsafeLock()
+	defer cg.inputFifo.UnsafeUnlock()
+	cg.settingsMutex.Lock()
+	defer cg.settingsMutex.Unlock()
+
+	var samples = cg.inputFifo.UnsafeNext().([]complex64)
+	//if cg.fftEnabled {
+	//	cg.processFFT(samples)
+	//}
+
+	if cg.iqEnabled {
+		cg.processIQ(samples)
+	}
+}
+
+func (cg *ChannelGenerator) processIQ(samples []complex64) {
+	if cg.iqFrequencyTranslator.GetDecimation() != 1 || cg.iqFrequencyTranslator.GetFrequency() != 0 {
+		samples = cg.iqFrequencyTranslator.Work(samples)
+	}
+	if cg.onIQSamples != nil {
+		cg.onIQSamples(samples)
+	}
+}
+
+func (cg *ChannelGenerator) processFFT(samples []complex64) {
+	if cg.fftFrequencyTranslator.GetDecimation() != 1 || cg.fftFrequencyTranslator.GetFrequency() != 0 {
+		samples = cg.fftFrequencyTranslator.Work(samples)
+	}
+	// TODO: FFT
+	//if cg.onFFTSamples != nil {
+	//	go cg.onFFTSamples(fftSamples)
+	//}
 }
 
 func (cg *ChannelGenerator) notify() {
-	cg.routineNotify.L.Lock()
-	cg.routineNotify.Signal()
-	cg.routineNotify.L.Unlock()
+	cg.updateChannel <- true
 }
 
 func (cg *ChannelGenerator) Start() {
 	if !cg.running {
-		if cg.frequencyTranslator == nil || cg.decimator == nil {
-			cgLog.Fatal("Trying to start Channel Generator without frequencyTranslator or Decimator")
+		cgLog.Info("Starting Channel Generator")
+		if cg.iqFrequencyTranslator == nil && cg.fftFrequencyTranslator == nil {
+			cgLog.Fatal("Trying to start Channel Generator without frequencyTranslator for either IQ or FFT")
 		}
 		cg.running = true
 		go cg.routine()
@@ -68,6 +127,7 @@ func (cg *ChannelGenerator) Start() {
 
 func (cg *ChannelGenerator) Stop() {
 	if cg.running {
+		cgLog.Info("Stopping")
 		cg.running = false
 		cg.notify()
 	}
@@ -75,20 +135,61 @@ func (cg *ChannelGenerator) Stop() {
 
 func (cg *ChannelGenerator) UpdateSettings(state *ClientState) {
 	cg.settingsMutex.Lock()
-	defer cg.settingsMutex.Unlock()
-}
+	cgLog.Info("Updating settings")
 
-func (cg *ChannelGenerator) PutSamples(samples []complex64) {
-	cg.inputFifo.UnsafeLock()
-	defer cg.inputFifo.UnsafeUnlock()
+	var deviceFrequency = state.ServerState.Frontend.GetCenterFrequency()
+	var deviceSampleRate = state.ServerState.Frontend.GetSampleRate()
 
-	var fifoLength = cg.inputFifo.UnsafeLen()
+	cg.iqEnabled = (state.CGS.StreamingMode & protocol.StreamTypeIQ) > 0
+	cg.fftEnabled = (state.CGS.StreamingMode & protocol.StreamTypeFFT) > 0
 
-	var samplesToAdd = tools.Min(uint32(maxFifoLength-fifoLength), uint32(len(samples)))
-
-	for i := 0; i < int(samplesToAdd); i++ {
-		cg.inputFifo.Add(samples[i])
+	// region IQ Channel
+	if cg.iqEnabled {
+		var iqDecimationNumber = tools.StageToNumber(state.CGS.IQDecimation)
+		var iqFtTaps = tools.GenerateTranslatorTaps(iqDecimationNumber, deviceSampleRate)
+		var iqDeltaFrequency = state.CGS.IQCenterFrequency - deviceFrequency
+		cg.iqFrequencyTranslator = dsp.MakeFrequencyTranslator(int(iqDecimationNumber), float32(-iqDeltaFrequency), float32(deviceSampleRate), iqFtTaps)
+	}
+	// endregion
+	// region FFT Channel
+	if cg.fftEnabled {
+		var fftDecimationNumber = tools.StageToNumber(state.CGS.FFTDecimation)
+		var fftFtTaps = tools.GenerateTranslatorTaps(fftDecimationNumber, deviceSampleRate)
+		var fftDeltaFrequency = state.CGS.FFTCenterFrequency - deviceFrequency
+		cg.fftFrequencyTranslator = dsp.MakeFrequencyTranslator(int(fftDecimationNumber), float32(fftDeltaFrequency), float32(deviceSampleRate), fftFtTaps)
+	}
+	// endregion
+	cg.settingsMutex.Unlock()
+	if state.CGS.Streaming && !cg.running {
+		cg.Start()
 	}
 
+	if !state.CGS.Streaming && cg.running {
+		cg.Stop()
+	}
+	cgLog.Info("Settings updated.")
+}
+
+func (cg *ChannelGenerator) PushSamples(samples []complex64) {
+	cg.inputFifo.UnsafeLock()
+	var fifoLength = cg.inputFifo.UnsafeLen()
+
+	if maxFifoSize <= fifoLength {
+		cgLog.Debug("Fifo Overflowing!")
+		cg.inputFifo.UnsafeUnlock()
+		return
+	}
+
+	cg.inputFifo.UnsafeAdd(samples)
+	cg.inputFifo.UnsafeUnlock()
+
 	cg.notify()
+}
+
+func (cg *ChannelGenerator) SetOnIQ(cb OnIQSamples) {
+	cg.onIQSamples = cb
+}
+
+func (cg *ChannelGenerator) SetOnFFT(cb OnFFTSamples) {
+	cg.onFFTSamples = cb
 }

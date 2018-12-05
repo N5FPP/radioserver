@@ -2,30 +2,43 @@ package frontends
 
 import (
 	"fmt"
+	"github.com/racerxdl/radioserver/SLog"
 	"github.com/racerxdl/radioserver/protocol"
 	"github.com/racerxdl/spy2go/airspy"
 	"github.com/racerxdl/spy2go/spytypes"
 	"math"
 )
 
-const airspyMaximumFrequency = 1768000
-const airspyMinimumFrequency = 24000
+const airspyMaximumFrequency = 1.768e6
+const airspyMinimumFrequency = 24e6
+
+var airspyLog = SLog.Scope("Airspy Frontend")
 
 type AirspyFrontend struct {
 	device *airspy.Device
-	cb SamplesCallback
+	cb     SamplesCallback
 
-	deviceSerial uint64
-	maxSampleRate uint32
+	deviceSerial       uint64
+	maxSampleRate      uint32
 	maxDecimationStage uint32
+	currentGain        uint8
+}
+
+type internalCallback struct {
+	parent func(dType int, data interface{})
+}
+
+func (ic *internalCallback) OnData(dType int, data interface{}) {
+	ic.parent(dType, data)
 }
 
 func CreateAirspyFrontend(serial uint64) Frontend {
 	airspy.Initialize()
 	var f = &AirspyFrontend{
-		device: airspy.MakeAirspyDevice(serial),
-		deviceSerial: 0,
+		device:        airspy.MakeAirspyDevice(serial),
+		deviceSerial:  0,
 		maxSampleRate: 0,
+		currentGain:   0,
 	}
 
 	f.device.SetSampleType(spytypes.SamplesComplex64)
@@ -46,11 +59,18 @@ func CreateAirspyFrontend(serial uint64) Frontend {
 
 	for calcSR >= minimumSampleRate {
 		maxDecimationStage += 1
-		var decim = uint32(math.Pow(float64(maxDecimationStage), 2))
+		var decim = uint32(math.Pow(2, float64(maxDecimationStage)))
 		calcSR = f.maxSampleRate / decim
 	}
 
 	f.maxDecimationStage = maxDecimationStage
+
+	var ic = &internalCallback{
+		parent: f.internalCb,
+	}
+
+	f.device.SetCallback(ic)
+	f.device.SetSampleRate(f.maxSampleRate)
 
 	return f
 }
@@ -88,10 +108,8 @@ func (f *AirspyFrontend) internalCb(dType int, data interface{}) {
 		panic("Spy2Go Library is sending different types than we asked!")
 	}
 
-	samples := data.([]complex64)
-
 	if f.cb != nil {
-		f.cb(samples)
+		f.cb(data.([]complex64))
 	}
 }
 
@@ -113,25 +131,31 @@ func (f *AirspyFrontend) GetAvailableSampleRates() []uint32 {
 	return f.device.GetAvailableSampleRates()
 }
 func (f *AirspyFrontend) Start() {
+	airspyLog.Info("Starting")
 	f.device.Start()
 }
 func (f *AirspyFrontend) Stop() {
+	airspyLog.Info("Stopping")
 	f.device.Stop()
 }
 func (f *AirspyFrontend) SetAntenna(value string) {
-	// Nothing
+	airspyLog.Warn("Airspy Frontend does not support antenna switch. Ignoring...")
 }
 func (f *AirspyFrontend) SetAGC(agc bool) {
 	f.device.SetAGC(agc)
 }
 func (f *AirspyFrontend) SetGain(value uint8) {
 	f.device.SetLinearityGain(value)
+	f.currentGain = value
+}
+func (f *AirspyFrontend) GetGain() uint8 {
+	return f.currentGain
 }
 func (f *AirspyFrontend) SetBiasT(value bool) {
 	f.device.SetBiasT(value)
 }
 func (f *AirspyFrontend) GetCenterFrequency() uint32 {
-	return f.device.GetSampleRate()
+	return f.device.GetCenterFrequency()
 }
 func (f *AirspyFrontend) GetName() string {
 	return f.device.GetName()
@@ -150,5 +174,6 @@ func (f *AirspyFrontend) Init() bool {
 }
 
 func (f *AirspyFrontend) Destroy() {
-	// Nothing
+	airspyLog.Info("De-initializing")
+	airspy.DeInitialize()
 }

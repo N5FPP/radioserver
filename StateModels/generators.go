@@ -54,7 +54,7 @@ func CreatePong(state *ClientState) []uint8 {
 	return append(tools.StructToBytes(header), bodyData...)
 }
 
-func CreateDataPacket(state *ClientState, messageType uint32, samples []interface{}) []uint8 {
+func CreateDataPacket(state *ClientState, messageType uint32, samples interface{}) []uint8 {
 	var bodyData = tools.ArrayToBytes(samples)
 
 	var header = protocol.MessageHeader{
@@ -66,4 +66,9 @@ func CreateDataPacket(state *ClientState, messageType uint32, samples []interfac
 	}
 
 	return append(tools.StructToBytes(header), bodyData...)
+}
+
+func CreateRawPacket(header protocol.MessageHeader, data []uint8) []uint8 {
+	header.BodySize = uint32(len(data))
+	return append(tools.StructToBytes(header), data...)
 }

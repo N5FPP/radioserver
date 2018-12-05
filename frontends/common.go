@@ -24,6 +24,7 @@ type Frontend interface {
 	GetName() string
 	GetShortName() string
 	GetSampleRate() uint32
+	GetGain() uint8
 	SetSamplesAvailableCallback(cb SamplesCallback)
 	Init() bool
 	Destroy()

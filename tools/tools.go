@@ -3,6 +3,8 @@ package tools
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/racerxdl/segdsp/dsp"
+	"math"
 )
 
 func Min(a, b uint32) uint32 {
@@ -20,8 +22,8 @@ func StructToBytes(s interface{}) []uint8 {
 	return buff.Bytes()
 }
 
-// region Array Type Converters
-func UnknownArrayToBytes(s []interface{}) []uint8 {
+// region Array Type to Byte Converter
+func UnknownArrayToBytes(s interface{}) []uint8 {
 	var buff = new(bytes.Buffer)
 
 	binary.Write(buff, binary.LittleEndian, s)
@@ -29,90 +31,131 @@ func UnknownArrayToBytes(s []interface{}) []uint8 {
 	return buff.Bytes()
 }
 
-func Float32ArrayToBytes(s []interface{}) []uint8 {
+func Float32ArrayToBytes(s []float32) []uint8 {
 	var buff = new(bytes.Buffer)
 
 	for i := 0; i < len(s); i++ {
-		binary.Write(buff, binary.LittleEndian, s[i].(float32))
+		binary.Write(buff, binary.LittleEndian, s[i])
 	}
 
 	return buff.Bytes()
 }
 
-func Float64ArrayToBytes(s []interface{}) []uint8 {
+func Float64ArrayToBytes(s []float64) []uint8 {
 	var buff = new(bytes.Buffer)
 
 	for i := 0; i < len(s); i++ {
-		binary.Write(buff, binary.LittleEndian, s[i].(float64))
+		binary.Write(buff, binary.LittleEndian, s[i])
 	}
 
 	return buff.Bytes()
 }
 
-func Int16ArrayToBytes(s []interface{}) []uint8 {
+func Int16ArrayToBytes(s []int16) []uint8 {
 	var buff = new(bytes.Buffer)
 
 	for i := 0; i < len(s); i++ {
-		binary.Write(buff, binary.LittleEndian, s[i].(int16))
+		binary.Write(buff, binary.LittleEndian, s[i])
 	}
 
 	return buff.Bytes()
 }
 
-func Int8ArrayToBytes(s []interface{}) []uint8 {
+func Int8ArrayToBytes(s interface{}) []uint8 {
+	var buff = new(bytes.Buffer)
+
+	binary.Write(buff, binary.LittleEndian, s)
+
+	return buff.Bytes()
+}
+
+func Complex64ArrayToBytes(s []complex64) []uint8 {
 	var buff = new(bytes.Buffer)
 
 	for i := 0; i < len(s); i++ {
-		binary.Write(buff, binary.LittleEndian, s[i].(int8))
+		binary.Write(buff, binary.LittleEndian, s[i])
 	}
 
 	return buff.Bytes()
 }
 
-func Complex64ArrayToBytes(s []interface{}) []uint8 {
-	var buff = new(bytes.Buffer)
-
-	for i := 0; i < len(s); i++ {
-		binary.Write(buff, binary.LittleEndian, s[i].(complex64))
-	}
-
-	return buff.Bytes()
-}
-
-func UInt8ArrayToBytes(s []interface{}) []uint8 {
+func UInt8ArrayToBytes(s []uint8) []uint8 {
 	var buff = make([]uint8, len(s))
 
 	for i := 0; i < len(s); i++ {
-		buff[i] = s[i].(uint8)
+		buff[i] = s[i]
 	}
 
 	return buff
 }
-
-// endregion
-
-func ArrayToBytes(s []interface{}) []uint8 {
+func ArrayToBytes(s interface{}) []uint8 {
 	var va interface{}
-	if len(s) > 0 {
-		var elem = s[0]
-		switch v := elem.(type) {
-		case float32:
-			return Float32ArrayToBytes(s)
-		case float64:
-			return Float64ArrayToBytes(s)
-		case complex64:
-			return Complex64ArrayToBytes(s)
-		case uint8:
-			return UInt8ArrayToBytes(s)
-		case int8:
-			return Int8ArrayToBytes(s)
-		case int16:
-			return Int16ArrayToBytes(s)
-		default:
-			va = v
-			return UnknownArrayToBytes(s)
-		}
+	switch v := s.(type) {
+	case float32:
+		return Float32ArrayToBytes(s.([]float32))
+	case float64:
+		return Float64ArrayToBytes(s.([]float64))
+	case complex64:
+		return Complex64ArrayToBytes(s.([]complex64))
+	case uint8:
+		return UInt8ArrayToBytes(s.([]uint8))
+	case int8:
+		return Int8ArrayToBytes(s.([]int8))
+	case int16:
+		return Int16ArrayToBytes(s.([]int16))
+	default:
+		va = v
+		return UnknownArrayToBytes(s)
 	}
 	va = va
 	return make([]uint8, 0)
+}
+
+// endregion
+// region Complex64 to XX Array converters
+func Complex64ToInt16(samples []complex64) []int16 {
+	var i16samples = make([]int16, len(samples)*2)
+	for i, v := range samples {
+		i16samples[i*2] = int16(real(v) * 32768)
+		i16samples[i*2+1] = int16(imag(v) * 32768)
+	}
+	return i16samples
+}
+
+func Complex64ToUInt8(samples []complex64) []uint8 {
+	var u8samples = make([]uint8, len(samples)*2)
+	for i, v := range samples {
+		u8samples[i*2] = uint8(real(v)*127) + 127
+		u8samples[i*2+1] = uint8(imag(v)*127) + 127
+	}
+	return u8samples
+}
+
+// endregion
+// region Float32 to XX Array converters
+func Float32ToInt16(samples []float32) []int16 {
+	var i16samples = make([]int16, len(samples))
+	for i, v := range samples {
+		i16samples[i] = int16(v * 32768)
+	}
+	return i16samples
+}
+
+func Float32ToUInt8(samples []float32) []uint8 {
+	var u8samples = make([]uint8, len(samples))
+	for i, v := range samples {
+		u8samples[i] = uint8(v*127) + 127
+	}
+	return u8samples
+}
+
+// endregion
+
+func StageToNumber(stage uint32) uint32 {
+	return uint32(math.Pow(2, float64(stage)))
+}
+
+func GenerateTranslatorTaps(decimation, sampleRate uint32) []float32 {
+	var cutFrequency = float64(sampleRate) / (float64(decimation) * 2)
+	return dsp.MakeLowPassFixed(1, float64(sampleRate), float64(cutFrequency), 63)
 }

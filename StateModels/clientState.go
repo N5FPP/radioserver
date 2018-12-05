@@ -4,7 +4,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/racerxdl/radioserver/SLog"
 	"github.com/racerxdl/radioserver/protocol"
+	"github.com/racerxdl/radioserver/tools"
 	"net"
+	"strings"
 	"sync"
 	"time"
 )
@@ -26,6 +28,8 @@ type ChannelGeneratorState struct {
 	FFTCenterFrequency uint32
 	FFTDBRange         uint32
 }
+
+// region ClientState
 
 type ClientState struct {
 	UUID          string
@@ -59,11 +63,11 @@ type ClientState struct {
 
 	// Channel Generator
 	CGS ChannelGeneratorState
-	CG  ChannelGenerator
+	CG  *ChannelGenerator
 }
 
-func CreateClientState() *ClientState {
-	return &ClientState{
+func CreateClientState(centerFrequency uint32) *ClientState {
+	var cs = &ClientState{
 		UUID:           uuid.New().String(),
 		Buffer:         make([]uint8, 64*1024),
 		CurrentState:   protocol.ParserAcquiringHeader,
@@ -81,16 +85,22 @@ func CreateClientState() *ClientState {
 			Streaming:          false,
 			StreamingMode:      protocol.StreamModeIQOnly,
 			IQFormat:           protocol.StreamFormatInvalid,
-			IQCenterFrequency:  0,
+			IQCenterFrequency:  centerFrequency,
 			IQDecimation:       0,
 			FFTFormat:          protocol.StreamFormatInvalid,
 			FFTDecimation:      0,
 			FFTDBOffset:        0,
 			FFTDisplayPixels:   protocol.DefaultFFTDisplayPixels,
-			FFTCenterFrequency: 0,
+			FFTCenterFrequency: centerFrequency,
 			FFTDBRange:         protocol.DefaultFFTRange,
 		},
+		CG: CreateChannelGenerator(),
 	}
+
+	cs.CG.SetOnFFT(cs.onFFT)
+	cs.CG.SetOnIQ(cs.onIQ)
+
+	return cs
 }
 
 func (state *ClientState) Log(str interface{}, v ...interface{}) *ClientState {
@@ -122,21 +132,126 @@ func (state *ClientState) Fatal(str interface{}, v ...interface{}) {
 	state.LogInstance.Fatal(str, v)
 }
 
+func (state *ClientState) FullStop() {
+	state.Info("Fully stopping Client")
+	state.CG.Stop()
+	state.Info("Client stopped")
+}
+
 func (state *ClientState) SendData(buffer []uint8) bool {
 	state.connMtx.Lock()
 	defer state.connMtx.Unlock()
 
-	_, err := state.Conn.Write(buffer)
+	n, err := state.Conn.Write(buffer)
 	if err != nil {
-		state.LogInstance.Error("Error sending data: %s", err)
+		errMsg := err.Error()
+		if !strings.Contains(errMsg, "closed") && !strings.Contains(errMsg, "broken pipe") {
+			state.LogInstance.Error("Error sending data: %s", err)
+		}
 		return false
 	}
+
 	state.SentPackets++
+
+	if n > 0 {
+		state.SentBytes += uint64(n)
+	}
 
 	return true
 }
 
+func (state *ClientState) onFFT(samples []float32) {
+	var samplesToSend interface{}
+	var msgType uint32
+
+	switch state.CGS.IQFormat {
+	// TODO: DInt4
+	case protocol.StreamFormatUint8:
+		samplesToSend = tools.Float32ToUInt8(samples)
+		msgType = protocol.MsgTypeUint8FFT
+		break
+	default:
+		samplesToSend = nil
+	}
+
+	if samplesToSend != nil {
+		var data = CreateDataPacket(state, msgType, samplesToSend)
+		state.SendData(data)
+	}
+}
+
+func (state *ClientState) onIQ(samples []complex64) {
+	var samplesToSend interface{}
+	var msgType uint32
+
+	switch state.CGS.IQFormat {
+	case protocol.StreamFormatInt16:
+		samplesToSend = tools.Complex64ToInt16(samples)
+		msgType = protocol.MsgTypeInt16IQ
+		break
+	case protocol.StreamFormatUint8:
+		samplesToSend = tools.Complex64ToUInt8(samples)
+		msgType = protocol.MsgTypeUint8IQ
+		break
+	case protocol.StreamFormatFloat:
+		samplesToSend = samples
+		msgType = protocol.MsgTypeFloatIQ
+		break
+	default:
+		samplesToSend = nil
+	}
+
+	if samplesToSend != nil {
+		state.SendIQ(samplesToSend, msgType)
+	}
+}
+
+func (state *ClientState) SendIQ(samples interface{}, messageType uint32) {
+	var bodyData = tools.ArrayToBytes(samples)
+
+	var header = protocol.MessageHeader{
+		ProtocolID:     state.ServerVersion.ToUint32(),
+		MessageType:    messageType,
+		StreamType:     state.CGS.StreamingMode,
+		SequenceNumber: uint32(state.SentPackets & 0xFFFFFFFF),
+		BodySize:       uint32(len(bodyData)),
+	}
+
+	if len(bodyData) > protocol.MaxMessageBodySize {
+		// Segmentation
+		state.Warn("Segmentation")
+		for len(bodyData) > 0 {
+			chunkSize := tools.Min(protocol.MaxMessageBodySize, uint32(len(bodyData)))
+			segment := bodyData[:chunkSize]
+			bodyData = bodyData[chunkSize:]
+			header.BodySize = uint32(len(segment))
+			header.SequenceNumber = uint32(state.SentPackets & 0xFFFFFFFF)
+			state.SendData(CreateRawPacket(header, segment))
+		}
+		return
+	}
+
+	state.SendData(CreateRawPacket(header, bodyData))
+}
+
+func (state *ClientState) updateSync() {
+	state.SyncInfo.FFTCenterFrequency = state.CGS.FFTCenterFrequency
+	state.SyncInfo.IQCenterFrequency = state.CGS.IQCenterFrequency
+	state.SyncInfo.CanControl = state.ServerState.CanControl
+	state.SyncInfo.Gain = uint32(state.ServerState.Frontend.GetGain())
+	state.SyncInfo.DeviceCenterFrequency = state.ServerState.Frontend.GetCenterFrequency()
+
+	var halfSampleRate = state.ServerState.Frontend.GetSampleRate() / 2
+	var centerFreq = state.CGS.IQCenterFrequency
+
+	state.SyncInfo.MaximumIQCenterFrequency = centerFreq + halfSampleRate
+	state.SyncInfo.MinimumIQCenterFrequency = centerFreq - halfSampleRate
+	state.SyncInfo.MaximumFFTCenterFrequency = centerFreq + halfSampleRate
+	state.SyncInfo.MinimumFFTCenterFrequency = centerFreq - halfSampleRate
+}
+
 func (state *ClientState) SendSync() {
+	state.updateSync()
 	data := CreateClientSync(state)
 	if !state.SendData(data) {
 		state.Error("Error sending syncInfo packet")
@@ -190,20 +305,21 @@ func (state *ClientState) SetStreamingEnabled(enabled bool) bool {
 	}
 
 	state.Log("Streaming %s", enabledString)
-	state.CGS.Streaming = true
+	state.CGS.Streaming = enabled
 
-	return false
+	return true
 }
 func (state *ClientState) SetIQFormat(format uint32) bool {
 	state.CGS.IQFormat = format
 	return true
 }
 func (state *ClientState) SetGain(gain uint32) bool {
-	state.Error("Set Gain Not implemented!")
-	return false
+	state.ServerState.Frontend.SetGain(uint8(gain))
+	return true
 }
 func (state *ClientState) SetIQFrequency(frequency uint32) bool {
 	state.CGS.IQCenterFrequency = frequency
+	state.updateSync()
 	return true
 }
 func (state *ClientState) SetIQDecimation(decimation uint32) bool {
@@ -221,6 +337,7 @@ func (state *ClientState) SetFFTFormat(format uint32) bool {
 
 func (state *ClientState) SetFFTFrequency(frequency uint32) bool {
 	state.CGS.FFTCenterFrequency = frequency
+	state.updateSync()
 	return true
 }
 
@@ -248,3 +365,5 @@ func (state *ClientState) SetFFTDisplayPixels(pixels uint32) bool {
 	}
 	return false
 }
+
+// endregion
