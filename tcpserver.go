@@ -31,13 +31,11 @@ func parseHttpError(err error, state *StateModels.ClientState) {
 			}
 			state.Running = false
 		}
-		break
 	default:
 		if tcpServerStatus && state.Running {
 			state.Error("Error receiving data: %s", e)
 		}
 		state.Running = false
-		break
 	}
 }
 
@@ -60,7 +58,7 @@ func handleConnection(c net.Conn) {
 			break
 		}
 
-		err := c.SetReadDeadline(time.Now().Add(defaultReadTimeout))
+		_ = c.SetReadDeadline(time.Now().Add(defaultReadTimeout))
 		n, err := c.Read(clientState.Buffer)
 
 		if err != nil {

@@ -11,7 +11,7 @@ import (
 func parseMessage(state *StateModels.ClientState, buffer []uint8) {
 	state.ReceivedBytes += uint64(len(buffer))
 
-	consumed := uint32(0)
+	var consumed uint32
 
 	for len(buffer) > 0 && tcpServerStatus && state.Running {
 		if state.CurrentState == protocol.ParserAcquiringHeader {

@@ -21,7 +21,7 @@ func main() {
 		if err != nil {
 			SLog.Fatal(err)
 		}
-		pprof.StartCPUProfile(f)
+		_ = pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
 
@@ -33,12 +33,13 @@ func main() {
 		}
 	}()
 
-	SLog.Info("RadioServer - %s", ServerVersion.String())
+	SLog.Info("Protocol Version: %s", ServerVersion.String())
+	SLog.Info("Commit Hash: %s", commitHash)
 	SLog.Info("SIMD Mode: %s", dsp.GetSIMDMode())
 
 	var frontend = frontends.CreateAirspyFrontend(0)
 	frontend.Init()
-	frontend.SetCenterFrequency(100000000)
+	frontend.SetCenterFrequency(106300000)
 
 	defer frontend.Destroy()
 
@@ -75,8 +76,8 @@ func main() {
 		stop <- true
 	}()
 
-	frontend.Start()
-	defer frontend.Stop()
+	// frontend.Start()
+	// defer frontend.Stop()
 	runServer(stop)
 	SLog.Info("Closing")
 }

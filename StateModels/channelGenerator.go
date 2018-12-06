@@ -76,12 +76,12 @@ func (cg *ChannelGenerator) waitAll() {
 }
 
 func (cg *ChannelGenerator) doWork() {
-	cg.inputFifo.UnsafeLock()
-	defer cg.inputFifo.UnsafeUnlock()
 	cg.settingsMutex.Lock()
 	defer cg.settingsMutex.Unlock()
 
+	cg.inputFifo.UnsafeLock()
 	var samples = cg.inputFifo.UnsafeNext().([]complex64)
+	cg.inputFifo.UnsafeUnlock()
 	//if cg.fftEnabled {
 	//	cg.processFFT(samples)
 	//}
@@ -100,15 +100,24 @@ func (cg *ChannelGenerator) processIQ(samples []complex64) {
 	}
 }
 
-func (cg *ChannelGenerator) processFFT(samples []complex64) {
-	if cg.fftFrequencyTranslator.GetDecimation() != 1 || cg.fftFrequencyTranslator.GetFrequency() != 0 {
-		samples = cg.fftFrequencyTranslator.Work(samples)
-	}
-	// TODO: FFT
-	//if cg.onFFTSamples != nil {
-	//	go cg.onFFTSamples(fftSamples)
-	//}
-}
+//func (cg *ChannelGenerator) processFFT(samples []complex64) {
+//	//if cg.fftFrequencyTranslator.GetDecimation() != 1 || cg.fftFrequencyTranslator.GetFrequency() != 0 {
+//	//	samples = cg.fftFrequencyTranslator.Work(samples)
+//	//}
+//
+//	//fftCData := fft.FFT(samples)
+//	//
+//	//var fftSamples = make([]float32, len(fftCData))
+//	//
+//	//for i, v := range fftCData {
+//	//	// TODO: Scale FFT
+//	//	fftSamples[i] = float32(10 * math.Log10(float64(real(v))))
+//	//}
+//
+//	//if cg.onFFTSamples != nil {
+//	//	go cg.onFFTSamples(fftSamples)
+//	//}
+//}
 
 func (cg *ChannelGenerator) notify() {
 	cg.updateChannel <- true
@@ -148,7 +157,7 @@ func (cg *ChannelGenerator) UpdateSettings(state *ClientState) {
 		var iqDecimationNumber = tools.StageToNumber(state.CGS.IQDecimation)
 		var iqFtTaps = tools.GenerateTranslatorTaps(iqDecimationNumber, deviceSampleRate)
 		var iqDeltaFrequency = state.CGS.IQCenterFrequency - deviceFrequency
-		cg.iqFrequencyTranslator = dsp.MakeFrequencyTranslator(int(iqDecimationNumber), float32(-iqDeltaFrequency), float32(deviceSampleRate), iqFtTaps)
+		cg.iqFrequencyTranslator = dsp.MakeFrequencyTranslator(int(iqDecimationNumber), float32(iqDeltaFrequency), float32(deviceSampleRate), iqFtTaps)
 	}
 	// endregion
 	// region FFT Channel
@@ -183,7 +192,7 @@ func (cg *ChannelGenerator) PushSamples(samples []complex64) {
 	cg.inputFifo.UnsafeAdd(samples)
 	cg.inputFifo.UnsafeUnlock()
 
-	cg.notify()
+	go cg.notify()
 }
 
 func (cg *ChannelGenerator) SetOnIQ(cb OnIQSamples) {

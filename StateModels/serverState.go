@@ -1,6 +1,7 @@
 package StateModels
 
 import (
+	"github.com/racerxdl/radioserver/SLog"
 	"github.com/racerxdl/radioserver/frontends"
 	"github.com/racerxdl/radioserver/protocol"
 	"sync"
@@ -35,7 +36,13 @@ func (s *ServerState) PushClient(state *ClientState) {
 	s.clientListMtx.Lock()
 	defer s.clientListMtx.Unlock()
 
+	count := len(s.clients)
+
 	s.clients = append(s.clients, state)
+	if count == 0 {
+		SLog.Info("First client connected. Starting frontend...")
+		s.Frontend.Start()
+	}
 }
 
 func (s *ServerState) RemoveClient(state *ClientState) {
@@ -44,6 +51,11 @@ func (s *ServerState) RemoveClient(state *ClientState) {
 	idx := s.indexOfClient(state)
 	if idx != -1 {
 		s.clients = append(s.clients[:idx], s.clients[idx+1:]...)
+	}
+
+	if len(s.clients) == 0 {
+		SLog.Info("Last client gone. Stopping frontend...")
+		s.Frontend.Stop()
 	}
 }
 

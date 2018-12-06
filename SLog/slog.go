@@ -6,7 +6,7 @@ var warnEnabled = true
 var errorEnabled = true
 var infoEnabled = true
 
-var glog = Instance{scope: "APP"}
+var glog = Instance{scope: "RadioServer"}
 
 func Log(str interface{}, v ...interface{}) *Instance {
 	return glog.Log(str, v...)

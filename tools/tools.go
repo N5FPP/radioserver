@@ -17,7 +17,7 @@ func Min(a, b uint32) uint32 {
 func StructToBytes(s interface{}) []uint8 {
 	var buff = new(bytes.Buffer)
 
-	binary.Write(buff, binary.LittleEndian, s)
+	_ = binary.Write(buff, binary.LittleEndian, s)
 
 	return buff.Bytes()
 }
@@ -26,7 +26,7 @@ func StructToBytes(s interface{}) []uint8 {
 func UnknownArrayToBytes(s interface{}) []uint8 {
 	var buff = new(bytes.Buffer)
 
-	binary.Write(buff, binary.LittleEndian, s)
+	_ = binary.Write(buff, binary.LittleEndian, s)
 
 	return buff.Bytes()
 }
@@ -35,7 +35,7 @@ func Float32ArrayToBytes(s []float32) []uint8 {
 	var buff = new(bytes.Buffer)
 
 	for i := 0; i < len(s); i++ {
-		binary.Write(buff, binary.LittleEndian, s[i])
+		_ = binary.Write(buff, binary.LittleEndian, s[i])
 	}
 
 	return buff.Bytes()
@@ -45,7 +45,7 @@ func Float64ArrayToBytes(s []float64) []uint8 {
 	var buff = new(bytes.Buffer)
 
 	for i := 0; i < len(s); i++ {
-		binary.Write(buff, binary.LittleEndian, s[i])
+		_ = binary.Write(buff, binary.LittleEndian, s[i])
 	}
 
 	return buff.Bytes()
@@ -55,7 +55,7 @@ func Int16ArrayToBytes(s []int16) []uint8 {
 	var buff = new(bytes.Buffer)
 
 	for i := 0; i < len(s); i++ {
-		binary.Write(buff, binary.LittleEndian, s[i])
+		_ = binary.Write(buff, binary.LittleEndian, s[i])
 	}
 
 	return buff.Bytes()
@@ -64,7 +64,7 @@ func Int16ArrayToBytes(s []int16) []uint8 {
 func Int8ArrayToBytes(s interface{}) []uint8 {
 	var buff = new(bytes.Buffer)
 
-	binary.Write(buff, binary.LittleEndian, s)
+	_ = binary.Write(buff, binary.LittleEndian, s)
 
 	return buff.Bytes()
 }
@@ -73,7 +73,7 @@ func Complex64ArrayToBytes(s []complex64) []uint8 {
 	var buff = new(bytes.Buffer)
 
 	for i := 0; i < len(s); i++ {
-		binary.Write(buff, binary.LittleEndian, s[i])
+		_ = binary.Write(buff, binary.LittleEndian, s[i])
 	}
 
 	return buff.Bytes()
@@ -89,7 +89,6 @@ func UInt8ArrayToBytes(s []uint8) []uint8 {
 	return buff
 }
 func ArrayToBytes(s interface{}) []uint8 {
-	var va interface{}
 	switch v := s.(type) {
 	case float32:
 		return Float32ArrayToBytes(s.([]float32))
@@ -104,11 +103,9 @@ func ArrayToBytes(s interface{}) []uint8 {
 	case int16:
 		return Int16ArrayToBytes(s.([]int16))
 	default:
-		va = v
+		_ = v
 		return UnknownArrayToBytes(s)
 	}
-	va = va
-	return make([]uint8, 0)
 }
 
 // endregion
@@ -144,7 +141,7 @@ func Float32ToInt16(samples []float32) []int16 {
 func Float32ToUInt8(samples []float32) []uint8 {
 	var u8samples = make([]uint8, len(samples))
 	for i, v := range samples {
-		u8samples[i] = uint8(v*127) + 127
+		u8samples[i] = uint8(v * 127)
 	}
 	return u8samples
 }
@@ -156,6 +153,6 @@ func StageToNumber(stage uint32) uint32 {
 }
 
 func GenerateTranslatorTaps(decimation, sampleRate uint32) []float32 {
-	var cutFrequency = float64(sampleRate) / (float64(decimation) * 2)
-	return dsp.MakeLowPassFixed(1, float64(sampleRate), float64(cutFrequency), 63)
+	var outputSampleRate = float64(sampleRate)
+	return dsp.MakeLowPassFixed(1, outputSampleRate, outputSampleRate/(2*float64(decimation)), 31)
 }

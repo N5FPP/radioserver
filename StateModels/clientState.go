@@ -32,17 +32,16 @@ type ChannelGeneratorState struct {
 // region ClientState
 
 type ClientState struct {
-	UUID          string
-	Buffer        []uint8
-	HeaderBuffer  []uint8
-	LogInstance   *SLog.Instance
-	Addr          net.Addr
-	Conn          net.Conn
-	Running       bool
-	Name          string
-	ClientVersion protocol.Version
-	connMtx       sync.Mutex
-
+	sync.Mutex
+	UUID           string
+	Buffer         []uint8
+	HeaderBuffer   []uint8
+	LogInstance    *SLog.Instance
+	Addr           net.Addr
+	Conn           net.Conn
+	Running        bool
+	Name           string
+	ClientVersion  protocol.Version
 	CurrentState   int
 	ReceivedBytes  uint64
 	SentBytes      uint64
@@ -80,7 +79,6 @@ func CreateClientState(centerFrequency uint32) *ClientState {
 		ParserPosition: 0,
 		LogInstance:    SLog.Scope("ClientState"),
 		HeaderBuffer:   make([]uint8, protocol.MessageHeaderSize),
-		connMtx:        sync.Mutex{},
 		CGS: ChannelGeneratorState{
 			Streaming:          false,
 			StreamingMode:      protocol.StreamModeIQOnly,
@@ -139,8 +137,8 @@ func (state *ClientState) FullStop() {
 }
 
 func (state *ClientState) SendData(buffer []uint8) bool {
-	state.connMtx.Lock()
-	defer state.connMtx.Unlock()
+	state.Lock()
+	defer state.Unlock()
 
 	n, err := state.Conn.Write(buffer)
 	if err != nil {
@@ -169,7 +167,6 @@ func (state *ClientState) onFFT(samples []float32) {
 	case protocol.StreamFormatUint8:
 		samplesToSend = tools.Float32ToUInt8(samples)
 		msgType = protocol.MsgTypeUint8FFT
-		break
 	default:
 		samplesToSend = nil
 	}
@@ -188,15 +185,12 @@ func (state *ClientState) onIQ(samples []complex64) {
 	case protocol.StreamFormatInt16:
 		samplesToSend = tools.Complex64ToInt16(samples)
 		msgType = protocol.MsgTypeInt16IQ
-		break
 	case protocol.StreamFormatUint8:
 		samplesToSend = tools.Complex64ToUInt8(samples)
 		msgType = protocol.MsgTypeUint8IQ
-		break
 	case protocol.StreamFormatFloat:
 		samplesToSend = samples
 		msgType = protocol.MsgTypeFloatIQ
-		break
 	default:
 		samplesToSend = nil
 	}
@@ -219,7 +213,6 @@ func (state *ClientState) SendIQ(samples interface{}, messageType uint32) {
 
 	if len(bodyData) > protocol.MaxMessageBodySize {
 		// Segmentation
-		state.Warn("Segmentation")
 		for len(bodyData) > 0 {
 			chunkSize := tools.Min(protocol.MaxMessageBodySize, uint32(len(bodyData)))
 			segment := bodyData[:chunkSize]

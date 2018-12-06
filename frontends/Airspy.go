@@ -22,6 +22,7 @@ type AirspyFrontend struct {
 	maxSampleRate      uint32
 	maxDecimationStage uint32
 	currentGain        uint8
+	running            bool
 }
 
 type internalCallback struct {
@@ -39,6 +40,7 @@ func CreateAirspyFrontend(serial uint64) Frontend {
 		deviceSerial:  0,
 		maxSampleRate: 0,
 		currentGain:   0,
+		running:       false,
 	}
 
 	f.device.SetSampleType(spytypes.SamplesComplex64)
@@ -131,12 +133,18 @@ func (f *AirspyFrontend) GetAvailableSampleRates() []uint32 {
 	return f.device.GetAvailableSampleRates()
 }
 func (f *AirspyFrontend) Start() {
-	airspyLog.Info("Starting")
-	f.device.Start()
+	if !f.running {
+		airspyLog.Info("Starting")
+		f.device.Start()
+		f.running = true
+	}
 }
 func (f *AirspyFrontend) Stop() {
-	airspyLog.Info("Stopping")
-	f.device.Stop()
+	if f.running {
+		airspyLog.Info("Stopping")
+		f.device.Stop()
+		f.running = false
+	}
 }
 func (f *AirspyFrontend) SetAntenna(value string) {
 	airspyLog.Warn("Airspy Frontend does not support antenna switch. Ignoring...")
