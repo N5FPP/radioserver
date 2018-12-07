@@ -156,16 +156,18 @@ func (cg *ChannelGenerator) UpdateSettings(state *ClientState) {
 	if cg.iqEnabled {
 		var iqDecimationNumber = tools.StageToNumber(state.CGS.IQDecimation)
 		var iqFtTaps = tools.GenerateTranslatorTaps(iqDecimationNumber, deviceSampleRate)
-		var iqDeltaFrequency = state.CGS.IQCenterFrequency - deviceFrequency
-		cg.iqFrequencyTranslator = dsp.MakeFrequencyTranslator(int(iqDecimationNumber), float32(iqDeltaFrequency), float32(deviceSampleRate), iqFtTaps)
+		var iqDeltaFrequency = float32(state.CGS.IQCenterFrequency) - float32(deviceFrequency)
+		cgLog.Debug("IQ Delta Frequency: %.0f", iqDeltaFrequency)
+		cg.iqFrequencyTranslator = dsp.MakeFrequencyTranslator(int(iqDecimationNumber), iqDeltaFrequency, float32(deviceSampleRate), iqFtTaps)
 	}
 	// endregion
 	// region FFT Channel
 	if cg.fftEnabled {
 		var fftDecimationNumber = tools.StageToNumber(state.CGS.FFTDecimation)
 		var fftFtTaps = tools.GenerateTranslatorTaps(fftDecimationNumber, deviceSampleRate)
-		var fftDeltaFrequency = state.CGS.FFTCenterFrequency - deviceFrequency
-		cg.fftFrequencyTranslator = dsp.MakeFrequencyTranslator(int(fftDecimationNumber), float32(fftDeltaFrequency), float32(deviceSampleRate), fftFtTaps)
+		var fftDeltaFrequency = float32(state.CGS.FFTCenterFrequency) - float32(deviceFrequency)
+		cgLog.Debug("FFT Delta Frequency: %.0f", fftDeltaFrequency)
+		cg.fftFrequencyTranslator = dsp.MakeFrequencyTranslator(int(fftDecimationNumber), fftDeltaFrequency, float32(deviceSampleRate), fftFtTaps)
 	}
 	// endregion
 	cg.settingsMutex.Unlock()
@@ -180,6 +182,10 @@ func (cg *ChannelGenerator) UpdateSettings(state *ClientState) {
 }
 
 func (cg *ChannelGenerator) PushSamples(samples []complex64) {
+	if !cg.running {
+		return
+	}
+
 	cg.inputFifo.UnsafeLock()
 	var fifoLength = cg.inputFifo.UnsafeLen()
 

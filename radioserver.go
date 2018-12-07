@@ -38,6 +38,7 @@ func main() {
 	SLog.Info("SIMD Mode: %s", dsp.GetSIMDMode())
 
 	var frontend = frontends.CreateAirspyFrontend(0)
+	//var frontend = frontends.CreateLimeSDRFrontend(0)
 	frontend.Init()
 	frontend.SetCenterFrequency(106300000)
 
